@@ -10,7 +10,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #0f1419;
+  background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+  background-attachment: fixed;
   color: #e7e9ea;
 }
 
@@ -22,8 +23,9 @@ body {
 
 /* Header */
 .header {
-  background: #16181c;
-  border-bottom: 1px solid #2f3336;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
   padding: 0 24px;
   position: sticky;
   top: 0;
