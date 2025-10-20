@@ -426,4 +426,239 @@
   .leaderboard-table td {
     padding: 8px 10px;
   }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .leaderboard-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .refresh-btn {
+    align-self: flex-end;
+  }
+}
+
+/* Public Leagues Tab */
+.public-leagues-tab {
+  min-height: 500px;
+}
+
+.public-leagues-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1f2937, #374151);
+  border-radius: 12px;
+  border: 1px solid #4b5563;
+}
+
+.public-leagues-header h3 {
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: #ffffff;
+}
+
+.public-leagues-header p {
+  color: #d1d5db;
+  margin: 0;
+}
+
+.league-card.public-league {
+  position: relative;
+  overflow: hidden;
+}
+
+.league-card.public-league::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06d6a0);
+}
+
+.league-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.league-actions .join-btn,
+.league-actions .view-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 13px;
+}
+
+.league-actions .join-btn {
+  background: #10b981;
+  color: white;
+}
+
+.league-actions .join-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.league-actions .view-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.league-actions .view-btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+/* Enhanced Features Display */
+.league-features .feature {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-radius: 4px;
+  color: white;
+  margin-right: 6px;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Animation for league cards */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.league-card {
+  animation: slideInUp 0.3s ease forwards;
+}
+
+.league-card:nth-child(1) { animation-delay: 0.1s; }
+.league-card:nth-child(2) { animation-delay: 0.2s; }
+.league-card:nth-child(3) { animation-delay: 0.3s; }
+
+/* Enhanced Leaderboard Styles */
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.refresh-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.refresh-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* League Statistics Styles */
+.league-stats {
+  background: #1f2937;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+  border: 1px solid #374151;
+}
+
+.league-stats h4 {
+  color: #ffffff;
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.stat-item {
+  background: #374151;
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.stat-value {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.last-updated {
+  text-align: center;
+  color: #6b7280;
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #374151;
+}
+
+/* Real-time Update Animations */
+@keyframes pulse-update {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.leaderboard-table.updating {
+  animation: pulse-update 1s;
+}
+
+/* Enhanced Leaderboard Table */
+.leaderboard-table table {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #374151;
+}
+
+.leaderboard-table th {
+  position: sticky;
+  top: 0;
+  background: #1f2937;
+  z-index: 10;
 }
