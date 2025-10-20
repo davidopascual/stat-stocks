@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Option, OptionPosition, Player } from '../types';
-import { useTradingContext } from '../context/TradingContext';
 import toast from 'react-hot-toast';
 import OptionsConfirmationModal from './OptionsConfirmationModal';
 import ExerciseOptionsModal from './ExerciseOptionsModal';
@@ -11,7 +10,6 @@ interface OptionsTab {
 }
 
 const OptionsTrading: React.FC<OptionsTab> = ({ player, userId }) => {
-  const { refreshPortfolio } = useTradingContext();
   const [optionsChain, setOptionsChain] = useState<Option[]>([]);
   const [positions, setPositions] = useState<OptionPosition[]>([]);
   const [selectedExpiration, setSelectedExpiration] = useState<string>('');
@@ -29,7 +27,7 @@ const OptionsTrading: React.FC<OptionsTab> = ({ player, userId }) => {
 
   const fetchOptionsChain = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/options/${player.id}`);
+      const res = await fetch(`http://localhost:3001/api/options/chain/${player.id}`);
       const data = await res.json();
       setOptionsChain(data);
 
@@ -90,7 +88,6 @@ const OptionsTrading: React.FC<OptionsTab> = ({ player, userId }) => {
           }
         );
         fetchPositions();
-        refreshPortfolio(); // Refresh the main portfolio context
         setShowBuyModal(false);
       } else {
         toast.error(result.message, {

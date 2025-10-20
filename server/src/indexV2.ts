@@ -91,34 +91,12 @@ app.get('/api/options/chain/:playerId', (req, res) => {
 
 app.post('/api/options/buy', (req, res) => {
   const { userId, optionId, contracts } = req.body;
-  
-  // Validate league restrictions
-  const validation = leagueManager.validateTradeForUser(userId, 'options');
-  if (!validation.allowed) {
-    return res.status(403).json({
-      success: false,
-      error: validation.message,
-      restrictingLeagues: validation.restrictingLeagues
-    });
-  }
-  
   const result = optionsEngine.buyOption(userId, optionId, parseInt(contracts));
   res.json(result);
 });
 
 app.post('/api/options/sell', (req, res) => {
   const { userId, optionId, contracts } = req.body;
-  
-  // Validate league restrictions
-  const validation = leagueManager.validateTradeForUser(userId, 'options');
-  if (!validation.allowed) {
-    return res.status(403).json({
-      success: false,
-      error: validation.message,
-      restrictingLeagues: validation.restrictingLeagues
-    });
-  }
-  
   const result = optionsEngine.sellOption(userId, optionId, parseInt(contracts));
   res.json(result);
 });
@@ -138,18 +116,8 @@ app.get('/api/options/positions/:userId', (req, res) => {
 
 app.post('/api/short/sell', (req, res) => {
   const { userId, playerId, shares } = req.body;
-  
-  // Validate league restrictions
-  const validation = leagueManager.validateTradeForUser(userId, 'short');
-  if (!validation.allowed) {
-    return res.status(403).json({
-      success: false,
-      error: validation.message,
-      restrictingLeagues: validation.restrictingLeagues
-    });
-  }
-  
   const player = getPlayer(playerId);
+
   if (!player) {
     res.status(404).json({ error: 'Player not found' });
     return;
@@ -181,7 +149,21 @@ app.get('/api/short/available/:playerId', (req, res) => {
 });
 
 // ========== LEAGUE ENDPOINTS ==========
+// NOTE: Specific routes must come before parameterized routes!
 
+// Get public leagues (must be before /:leagueId)
+app.get('/api/leagues/public', (req, res) => {
+  const leagues = leagueManager.getPublicLeagues();
+  res.json(leagues);
+});
+
+// Get user's leagues (must be before /:leagueId)
+app.get('/api/leagues/user/:userId', (req, res) => {
+  const leagues = leagueManager.getUserLeagues(req.params.userId);
+  res.json(leagues);
+});
+
+// Create league
 app.post('/api/leagues/create', (req, res) => {
   const { creatorId, name, description, startingBalance, settings, isPrivate } = req.body;
   const result = leagueManager.createLeague(
@@ -195,38 +177,28 @@ app.post('/api/leagues/create', (req, res) => {
   res.json(result);
 });
 
+// Join league
 app.post('/api/leagues/join', (req, res) => {
   const { userId, inviteCode } = req.body;
   const result = leagueManager.joinLeague(userId, inviteCode);
-  
-  // Add activity if join was successful
-  if (result.success && result.league) {
-    const user = leagueManager.getUser(userId);
-    if (user) {
-      leagueManager.addActivity(
-        result.league.id,
-        'MEMBER_JOINED',
-        userId,
-        `${user.username} joined the league`
-      );
-    }
-  }
-  
   res.json(result);
 });
 
+// Leave league
 app.post('/api/leagues/:leagueId/leave', (req, res) => {
   const { userId } = req.body;
   const result = leagueManager.leaveLeague(userId, req.params.leagueId);
   res.json(result);
 });
 
+// Delete league
 app.delete('/api/leagues/:leagueId', (req, res) => {
   const { userId } = req.body;
   const result = leagueManager.deleteLeague(userId, req.params.leagueId);
   res.json(result);
 });
 
+// Get league details
 app.get('/api/leagues/:leagueId', (req, res) => {
   const league = leagueManager.getLeague(req.params.leagueId);
   if (league) {
@@ -236,125 +208,14 @@ app.get('/api/leagues/:leagueId', (req, res) => {
   }
 });
 
+// Get league leaderboard
 app.get('/api/leagues/:leagueId/leaderboard', (req, res) => {
-  // Update leaderboard before returning it
-  leagueManager.updateLeaderboardForLeague(req.params.leagueId);
-  
   const leaderboard = leagueManager.getLeaderboard(req.params.leagueId);
   if (leaderboard) {
     res.json(leaderboard);
   } else {
     res.status(404).json({ error: 'Leaderboard not found' });
   }
-});
-
-app.get('/api/leagues/:leagueId/members', (req, res) => {
-  const members = leagueManager.getLeagueMembers(req.params.leagueId);
-  res.json(members);
-});
-
-app.get('/api/leagues/user/:userId', (req, res) => {
-  const leagues = leagueManager.getUserLeagues(req.params.userId);
-  res.json(leagues);
-});
-
-app.get('/api/leagues/public', (req, res) => {
-  const leagues = leagueManager.getPublicLeagues();
-  res.json(leagues);
-});
-
-// Enhanced league endpoints
-app.get('/api/leagues/:leagueId/stats', (req, res) => {
-  const stats = leagueManager.getLeagueStats(req.params.leagueId);
-  if (stats) {
-    res.json(stats);
-  } else {
-    res.status(404).json({ error: 'League stats not found' });
-  }
-});
-
-app.get('/api/leagues/:leagueId/activity', (req, res) => {
-  const limit = parseInt(req.query.limit as string) || 20;
-  const activity = leagueManager.getLeagueActivity(req.params.leagueId, limit);
-  res.json(activity);
-});
-
-app.get('/api/leagues/:leagueId/leaderboard/enhanced', (req, res) => {
-  const leaderboard = leagueManager.getEnhancedLeaderboard(req.params.leagueId);
-  res.json(leaderboard);
-});
-
-app.post('/api/leagues/:leagueId/leaderboard/refresh', (req, res) => {
-  try {
-    leagueManager.updateLeaderboardRealtime(req.params.leagueId);
-    res.json({ success: true, message: 'Leaderboard updated' });
-  } catch (err) {
-    console.error('Error updating leaderboard:', err);
-    res.status(500).json({ error: 'Failed to update leaderboard' });
-  }
-});
-
-// Testing endpoint for league features
-app.get('/api/leagues/test-features/:userId', (req, res) => {
-  const userId = req.params.userId;
-  const testResults = {
-    user: leagueManager.getUser(userId),
-    userLeagues: leagueManager.getUserLeagues(userId),
-    optionsValidation: leagueManager.validateTradeForUser(userId, 'options'),
-    shortValidation: leagueManager.validateTradeForUser(userId, 'short'),
-    marginValidation: leagueManager.validateTradeForUser(userId, 'margin', 2),
-    tradingFees: leagueManager.calculateTradingFees(userId, 10000)
-  };
-  
-  res.json(testResults);
-});
-
-// Demo user endpoint - creates or returns existing demo user
-app.get('/api/users/demo', (req, res) => {
-  const demoUserId = 'demo-user';
-  let demoUser = leagueManager.getUser(demoUserId);
-  
-  if (!demoUser) {
-    // Create demo user if it doesn't exist
-    demoUser = leagueManager.registerUser('Demo User', 'demo@example.com', 100000);
-    // Manually set the ID to 'demo-user' for consistency
-    leagueManager.setUserWithId(demoUserId, demoUser);
-  }
-  
-  res.json(demoUser);
-});
-
-// ========== AUTHENTICATION ENDPOINTS ==========
-
-app.get('/api/auth/verify', (req, res) => {
-  // Simple auth verification - return success for demo purposes
-  res.json({ 
-    success: true, 
-    user: { 
-      id: 'demo-user', 
-      username: 'Demo User', 
-      email: 'demo@example.com' 
-    } 
-  });
-});
-
-// ========== PORTFOLIO ENDPOINTS ==========
-
-app.get('/api/portfolio/:userId', (req, res) => {
-  const userId = req.params.userId;
-  const user = leagueManager.getUser(userId);
-  
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  // Return basic portfolio structure
-  res.json({
-    cash: user.cash,
-    positions: [], // Empty positions array for demo
-    totalValue: user.totalValue,
-    percentageReturn: user.percentageReturn
-  });
 });
 
 // ========== USER ENDPOINTS ==========
@@ -396,8 +257,7 @@ app.get('/api/stats/update', async (req, res) => {
   try {
     await fetchNBAStats();
     res.json({ success: true, message: 'Stats updated' });
-  } catch (err) {
-    console.error('Error updating NBA stats:', err);
+  } catch (error) {
     res.status(500).json({ error: 'Failed to update stats' });
   }
 });
@@ -419,7 +279,7 @@ wss.on('connection', (ws) => {
 });
 
 // Broadcast to all connected clients
-function broadcast(message: unknown) {
+function broadcast(message: any) {
   const payload = JSON.stringify(message);
   wss.clients.forEach(client => {
     if (client.readyState === 1) { // OPEN
@@ -440,16 +300,6 @@ getPlayers().forEach(player => {
 const playersMap = getPlayersMap();
 playersMap.forEach(player => {
   optionsEngine.generateOptionsChain(player);
-});
-
-// Set up league WebSocket broadcast callback
-leagueManager.setBroadcastCallback((leagueId: string, event: string, data: unknown) => {
-  broadcast({
-    type: 'LEAGUE_UPDATE',
-    leagueId,
-    event,
-    data
-  });
 });
 
 // Update prices every 30 seconds
@@ -481,16 +331,6 @@ setInterval(async () => {
     console.error('Error updating NBA stats:', error);
   }
 }, 300000);
-
-// Update league leaderboards every 2 minutes
-setInterval(() => {
-  try {
-    leagueManager.updateAllLeaderboardsRealtime();
-    console.log('🏆 League leaderboards updated');
-  } catch (error) {
-    console.error('Error updating league leaderboards:', error);
-  }
-}, 120000);
 
 // Listen for order book updates
 orderBookManager.on('orderbook_update', (orderBook) => {

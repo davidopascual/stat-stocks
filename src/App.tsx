@@ -1,28 +1,20 @@
 import React, { useState } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
 import { TradingProvider, useTradingContext } from './context/TradingContext';
-import Login from './components/Auth/Login';
-import Register from './components/Auth/Register';
-import MarketViewPro from './components/MarketViewPro';
+import MarketView from './components/MarketView';
 import PlayerDetailAdvanced from './components/PlayerDetailAdvanced';
-import PortfolioViewPro from './components/PortfolioViewPro';
-import LeagueManagement from './components/LeagueManagement';
-import PriceTicker from './components/PriceTicker';
+import PortfolioView from './components/PortfolioView';
 import { Player } from './types';
 import { useWebSocket } from './hooks/useWebSocket';
-import { LogOut, User as UserIcon } from 'lucide-react';
 import './App.css';
 import './AdvancedFeatures.css';
-import './styles/theme.css';
 
-type View = 'market' | 'portfolio' | 'leagues';
+type View = 'market' | 'portfolio';
 
 const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('market');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const { balance, getTotalValue } = useTradingContext();
-  const { players } = useWebSocket();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { players, isConnected } = useWebSocket();
 
   const handleSelectPlayer = (player: Player) => {
     setSelectedPlayer(player);
@@ -44,14 +36,10 @@ const AppContent: React.FC = () => {
         setSelectedPlayer(updatedPlayer);
       }
     }
-  }, [players, selectedPlayer]);
+  }, [players]);
 
   const handleBack = () => {
     setSelectedPlayer(null);
-  };
-
-  const handleLogout = () => {
-    logout();
   };
 
   return (
@@ -82,15 +70,6 @@ const AppContent: React.FC = () => {
               >
                 Portfolio
               </button>
-              <button
-                className={`nav-btn ${currentView === 'leagues' ? 'active' : ''}`}
-                onClick={() => {
-                  setCurrentView('leagues');
-                  setSelectedPlayer(null);
-                }}
-              >
-                Leagues
-              </button>
             </nav>
           </div>
           <div className="user-info">
@@ -103,69 +82,28 @@ const AppContent: React.FC = () => {
                 Total: ${getTotalValue().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
-            {isAuthenticated && user && (
-              <div className="user-profile">
-                <div className="user-info-display">
-                  <UserIcon size={18} />
-                  <span className="username">{user.displayName}</span>
-                </div>
-                <button className="logout-btn" onClick={handleLogout} title="Logout">
-                  <LogOut size={18} />
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </header>
-
-      {/* Price Ticker */}
-      {!selectedPlayer && <PriceTicker players={players} />}
 
       <main className="main-content">
         {selectedPlayer ? (
           <PlayerDetailAdvanced player={selectedPlayer} onBack={handleBack} />
         ) : currentView === 'market' ? (
-          <MarketViewPro onSelectPlayer={handleSelectPlayer} players={players} />
-        ) : currentView === 'portfolio' ? (
-          <PortfolioViewPro onSelectPlayer={handleSelectPlayerById} players={players} />
+          <MarketView onSelectPlayer={handleSelectPlayer} players={players} />
         ) : (
-          <LeagueManagement userId={user?.id || 'demo-user'} />
+          <PortfolioView onSelectPlayer={handleSelectPlayerById} />
         )}
       </main>
     </div>
   );
 };
 
-const AuthWrapper: React.FC = () => {
-  const { isAuthenticated, login } = useAuth();
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-
-  if (!isAuthenticated) {
-    return authMode === 'login' ? (
-      <Login
-        onLogin={login}
-        onSwitchToRegister={() => setAuthMode('register')}
-      />
-    ) : (
-      <Register
-        onRegister={login}
-        onSwitchToLogin={() => setAuthMode('login')}
-      />
-    );
-  }
-
+const App: React.FC = () => {
   return (
     <TradingProvider>
       <AppContent />
     </TradingProvider>
-  );
-};
-
-const App: React.FC = () => {
-  return (
-    <AuthProvider>
-      <AuthWrapper />
-    </AuthProvider>
   );
 };
 

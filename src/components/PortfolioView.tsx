@@ -8,7 +8,7 @@ interface PortfolioViewProps {
 }
 
 const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectPlayer, players }) => {
-  const { balance, positions, optionPositions, transactions } = useTradingContext();
+  const { balance, positions, transactions, getTotalValue } = useTradingContext();
 
   // Calculate stock positions value and P&L
   const stockPositionsValue = positions.reduce(
@@ -167,84 +167,6 @@ const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectPlayer, players }
             <div className="empty-state-icon">📊</div>
             <h3>No positions yet</h3>
             <p>Start trading to build your portfolio</p>
-          </div>
-        )}
-      </div>
-
-      {/* Option Positions Section */}
-      <div className="positions-list">
-        <div className="positions-header">
-          <h2>Your Option Positions</h2>
-        </div>
-        {optionsData && optionsData.length > 0 ? (
-          optionsData.map(optData => {
-            const optionParts = optData.optionId.split('_');
-            const expirationTs = optionParts[4] || '0';
-            const expirationDate = new Date(parseInt(expirationTs));
-            const isExpired = expirationDate < new Date();
-
-            const pnlPercent = optData.costBasis > 0 ? (optData.pnl / optData.costBasis) * 100 : 0;
-
-            return (
-              <div
-                key={optData.id}
-                className="position-item"
-                style={{ opacity: isExpired ? 0.6 : 1 }}
-              >
-                <div className="position-player">
-                  {optData.playerName} - {optData.optionType} ${optData.strikePrice}
-                  <div style={{ fontSize: '12px', color: '#71767b' }}>
-                    Exp: {expirationDate.toLocaleDateString()}
-                    {isExpired && ' (EXPIRED)'}
-                  </div>
-                  {optData.hasActivePlayer ? (
-                    <div style={{ fontSize: '12px', color: '#a0a0b0' }}>
-                      Current Price: ${optData.currentPlayerPrice.toFixed(2)}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '12px', color: '#f4a261' }}>
-                      ⚠️ Player inactive (using last known price: ${optData.currentPlayerPrice.toFixed(2)})
-                    </div>
-                  )}
-                </div>
-
-                <div className="position-column">
-                  <div className="column-label">Contracts</div>
-                  <div className="column-value">{optData.contracts}</div>
-                </div>
-
-                <div className="position-column">
-                  <div className="column-label">Avg. Cost</div>
-                  <div className="column-value">${optData.purchasePrice.toFixed(2)}</div>
-                </div>
-
-                <div className="position-column">
-                  <div className="column-label">Current Price</div>
-                  <div className="column-value">${optData.currentOptionPrice.toFixed(2)}</div>
-                </div>
-
-                <div className="position-column">
-                  <div className="column-label">Total Value</div>
-                  <div className="column-value">${optData.currentValue.toFixed(2)}</div>
-                </div>
-
-                <div className="position-column">
-                  <div className="column-label">P&L</div>
-                  <div
-                    className="column-value"
-                    style={{ color: optData.pnl >= 0 ? '#00ba7c' : '#f4212e' }}
-                  >
-                    {optData.pnl >= 0 ? '+' : ''}${optData.pnl.toFixed(2)} ({optData.pnl >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="empty-state">
-            <div className="empty-state-icon">📈</div>
-            <h3>No option positions yet</h3>
-            <p>Trade options to see them here</p>
           </div>
         )}
       </div>

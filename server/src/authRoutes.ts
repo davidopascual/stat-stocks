@@ -1,37 +1,13 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
-import { AuthService } from './authService.js';
-
-export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-  };
-}
-
-// Middleware to protect routes
-export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  const result = AuthService.verifyToken(token);
-
-  if (!result.valid) {
-    return res.status(403).json({ error: result.error || 'Invalid or expired token' });
-  }
-
-  req.user = {
-    id: result.userId!,
-    username: result.username!,
-    email: result.email!
-  };
-  next();
-}
+import {
+  registerUser,
+  loginUser,
+  authenticateToken,
+  getUserById,
+  updateUserProfile,
+  AuthRequest
+} from './auth.js';
 
 const router = Router();
 
@@ -53,16 +29,16 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, displayName } = req.body;
 
-    const result = await AuthService.register(username, email, password);
+    const result = await registerUser(username, email, password, displayName || username);
 
     if (!result.success) {
-      return res.status(400).json({ error: result.error });
+      return res.status(400).json({ error: result.message });
     }
 
     res.status(201).json({
-      message: 'Registration successful',
+      message: result.message,
       user: result.user,
       token: result.token
     });
@@ -87,14 +63,14 @@ router.post(
 
     const { usernameOrEmail, password } = req.body;
 
-    const result = await AuthService.login(usernameOrEmail, password);
+    const result = await loginUser(usernameOrEmail, password);
 
     if (!result.success) {
-      return res.status(401).json({ error: result.error });
+      return res.status(401).json({ error: result.message });
     }
 
     res.json({
-      message: 'Login successful',
+      message: result.message,
       user: result.user,
       token: result.token
     });
@@ -105,12 +81,12 @@ router.post(
  * GET /api/auth/me
  * Get current user profile (protected)
  */
-router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/me', authenticateToken, (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const user = await AuthService.getUserById(req.user.id);
+  const user = getUserById(req.user.id);
 
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
@@ -118,6 +94,42 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
 
   res.json({ user });
 });
+
+/**
+ * PUT /api/auth/profile
+ * Update user profile (protected)
+ */
+router.put(
+  '/profile',
+  authenticateToken,
+  [
+    body('displayName').optional().trim().isLength({ min: 1 }),
+    body('avatar').optional().trim().isURL()
+  ],
+  (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { displayName, avatar } = req.body;
+
+    const result = updateUserProfile(req.user.id, { displayName, avatar });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    res.json({
+      message: result.message,
+      user: result.user
+    });
+  }
+);
 
 /**
  * POST /api/auth/verify

@@ -30,7 +30,7 @@ const OrderBookView: React.FC<OrderBookViewProps> = ({ player, userId }) => {
 
   const fetchOrderBook = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/orders/${player.id}`);
+      const res = await fetch(`http://localhost:3001/api/orderbook/${player.id}`);
       const data = await res.json();
       setOrderBook(data);
     } catch (error) {

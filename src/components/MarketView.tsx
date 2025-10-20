@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Player } from '../types';
+import { Player } from '../data/mockPlayers';
 
 interface MarketViewProps {
   onSelectPlayer: (player: Player) => void;
@@ -11,7 +11,7 @@ const MarketView: React.FC<MarketViewProps> = ({ onSelectPlayer, players }) => {
   const [sortBy, setSortBy] = useState<'price' | 'change' | 'volume'>('change');
 
   const filteredAndSortedPlayers = useMemo(() => {
-    const filtered = players.filter(
+    let filtered = players.filter(
       player =>
         player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         player.team.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -47,30 +47,12 @@ export interface Position {
   type: 'LONG' | 'SHORT';
 }
 
-export interface Portfolio {
-  userId: string;
-  cash: number;
-  holdings: {
-    playerId: string;
-    playerName: string;
-    shares: number;
-    avgBuyPrice: number;
-    currentPrice?: number;
-  }[];
-  totalValue: number;
-  transactions: Transaction[];
-  optionPositions?: OptionPosition[];
-  shortPositions?: ShortPosition[];
-}
-
 export interface ShortPosition extends Position {
-  id: string;
   type: 'SHORT';
   borrowPrice: number;
   borrowDate: Date;
   dailyFee: number; // percentage per day
   sharesBorrowed: number;
-  proceeds?: number;
 }
 
 export interface LimitOrder {
@@ -146,7 +128,6 @@ export interface League {
   isPrivate: boolean;
   inviteCode: string;
   settings: LeagueSettings;
-  leaderboard?: LeaderboardEntry[];
 }
 
 export interface LeagueSettings {
@@ -181,7 +162,7 @@ export interface LeaderboardEntry {
 export interface Transaction {
   id: string;
   userId: string;
-  username?: string;
+  username: string;
   type: 'BUY' | 'SELL' | 'SHORT' | 'COVER' | 'OPTION_BUY' | 'OPTION_SELL' | 'OPTION_EXERCISE';
   playerId?: string;
   playerName?: string;
@@ -190,7 +171,7 @@ export interface Transaction {
   contracts?: number;
   price: number;
   total: number;
-  fee?: number;
+  fee: number;
   timestamp: Date;
   orderId?: string;
 }
@@ -212,15 +193,11 @@ export interface MarketStats {
   totalVolume: number;
   totalTrades: number;
   avgVolatility: number;
-  topGainers: { id?: string; playerId?: string; name?: string; change: number }[];
-  topLosers: { id?: string; playerId?: string; name?: string; change: number }[];
+  topGainers: { playerId: string; change: number }[];
+  topLosers: { playerId: string; change: number }[];
   mostActive: { playerId: string; volume: number }[];
   marketCap: number;
   vixIndex: number; // volatility index
-  avgChange?: number;
-  activePlayers?: number;
-  topGainer?: { id: string; name: string; change: number };
-  topLoser?: { id: string; name: string; change: number };
 }
 
 export interface CircuitBreaker {

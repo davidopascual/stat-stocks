@@ -9,23 +9,6 @@ interface Position {
   currentPrice: number;
 }
 
-interface OptionPosition {
-  id: string;
-  userId: string;
-  optionId: string;
-  contracts: number;
-  purchasePrice: number;
-  purchaseDate: Date;
-  position: 'LONG' | 'SHORT';
-  playerSnapshot?: {
-    id: string;
-    name: string;
-    team: string;
-    position: string;
-    priceAtPurchase: number;
-  };
-}
-
 interface Transaction {
   id: string;
   playerId: string;
@@ -39,7 +22,6 @@ interface Transaction {
 interface TradingContextType {
   balance: number;
   positions: Position[];
-  optionPositions: OptionPosition[];
   transactions: Transaction[];
   buyShares: (player: Player, shares: number) => Promise<boolean>;
   sellShares: (playerId: string, shares: number) => Promise<boolean>;
@@ -68,12 +50,11 @@ const WS_URL = 'ws://localhost:3001';
 export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) => {
   const [balance, setBalance] = useState(100000); // Starting with $100k
   const [positions, setPositions] = useState<Position[]>([]);
-  const [optionPositions, setOptionPositions] = useState<OptionPosition[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   const buyShares = async (player: Player, shares: number): Promise<boolean> => {
-    const userId = localStorage.getItem('userId') || 'demo-user';
+    const userId = localStorage.getItem('userId') || 'user123';
 
     try {
       const response = await fetch(`${API_URL}/api/trade`, {
@@ -104,7 +85,7 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
   };
 
   const sellShares = async (playerId: string, shares: number): Promise<boolean> => {
-    const userId = localStorage.getItem('userId') || 'demo-user';
+    const userId = localStorage.getItem('userId') || 'user123';
 
     try {
       const response = await fetch(`${API_URL}/api/trade`, {
@@ -148,41 +129,25 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
 
   // Fetch portfolio from backend
   const refreshPortfolio = async () => {
-    const userId = localStorage.getItem('userId') || 'demo-user'; // Default user ID
+    const userId = localStorage.getItem('userId') || 'user1'; // Get from auth context
     try {
       const response = await fetch(`${API_URL}/api/portfolio/${userId}`);
-      if (!response.ok) {
-        console.error(`Portfolio API returned ${response.status}`);
-        return;
-      }
-      
       const portfolio = await response.json();
 
-      setBalance(portfolio.cash || 100000);
+      setBalance(portfolio.cash);
 
       // Convert holdings to positions format
-      if (Array.isArray(portfolio.holdings)) {
-        const convertedPositions: Position[] = portfolio.holdings.map((h: { playerId: string; playerName: string; shares: number; avgBuyPrice: number; currentPrice?: number }) => ({
-          playerId: h.playerId,
-          playerName: h.playerName,
-          shares: h.shares,
-          avgBuyPrice: h.avgBuyPrice,
-          currentPrice: h.currentPrice || 0
-        }));
-        setPositions(convertedPositions);
-      } else {
-        setPositions([]);
-      }
-
-      // Set option positions
-      if (Array.isArray(portfolio.optionPositions)) {
-        setOptionPositions(portfolio.optionPositions);
-      }
+      const convertedPositions: Position[] = portfolio.holdings.map((h: any) => ({
+        playerId: h.playerId,
+        playerName: h.playerName,
+        shares: h.shares,
+        avgBuyPrice: h.avgBuyPrice,
+        currentPrice: h.currentPrice || 0
+      }));
+      setPositions(convertedPositions);
 
       // Set transactions
-      if (Array.isArray(portfolio.transactions)) {
-        setTransactions(portfolio.transactions);
-      }
+      setTransactions(portfolio.transactions || []);
     } catch (error) {
       console.error('Error fetching portfolio:', error);
     }
@@ -190,11 +155,6 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
 
   // Load portfolio on mount
   useEffect(() => {
-    // Set user ID if not already set
-    if (!localStorage.getItem('userId')) {
-      localStorage.setItem('userId', 'demo-user');
-    }
-    
     refreshPortfolio();
 
     // Setup WebSocket listener for portfolio updates
@@ -206,14 +166,14 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
         const message = JSON.parse(event.data);
 
         if (message.type === 'PORTFOLIO_UPDATE') {
-          const userId = localStorage.getItem('userId') || 'demo-user';
+          const userId = localStorage.getItem('userId') || 'user1';
 
           // Only update if it's for this user
           if (message.data.userId === userId) {
             const portfolio = message.data.portfolio;
             setBalance(portfolio.cash);
 
-            const convertedPositions: Position[] = portfolio.holdings.map((h: { playerId: string; playerName: string; shares: number; avgBuyPrice: number; currentPrice?: number }) => ({
+            const convertedPositions: Position[] = portfolio.holdings.map((h: any) => ({
               playerId: h.playerId,
               playerName: h.playerName,
               shares: h.shares,
@@ -221,11 +181,6 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
               currentPrice: h.currentPrice || 0
             }));
             setPositions(convertedPositions);
-
-            // Update option positions
-            if (portfolio.optionPositions) {
-              setOptionPositions(portfolio.optionPositions);
-            }
 
             if (portfolio.transactions) {
               setTransactions(portfolio.transactions);
@@ -249,7 +204,6 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
       value={{
         balance,
         positions,
-        optionPositions,
         transactions,
         buyShares,
         sellShares,

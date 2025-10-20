@@ -92,15 +92,6 @@ class OptionsEngine {
     id: string
   ): Option {
     const daysToExpiration = this.getDaysToExpiration(expirationDate);
-
-    // Calculate intrinsic value first
-    const intrinsicValue = this.calculateIntrinsicValue(
-      player.currentPrice,
-      strikePrice,
-      type
-    );
-
-    // Calculate premium using Black-Scholes
     const premium = this.calculatePremium(
       player.currentPrice,
       strikePrice,
@@ -109,20 +100,16 @@ class OptionsEngine {
       type
     );
 
-    // Calculate Greeks
-    const greeks = this.calculateGreeks(
+    const intrinsicValue = this.calculateIntrinsicValue(
       player.currentPrice,
       strikePrice,
-      daysToExpiration,
-      player.volatility,
       type
     );
 
-    // Time value is premium minus intrinsic value (always >= 0)
-    const timeValue = Math.max(0, premium - intrinsicValue);
+    const timeValue = premium - intrinsicValue;
     const inTheMoney = intrinsicValue > 0;
 
-    const option = {
+    return {
       id,
       playerId: player.id,
       playerName: player.name,
@@ -135,24 +122,10 @@ class OptionsEngine {
       inTheMoney,
       intrinsicValue,
       timeValue,
-      impliedVolatility: player.volatility,
-      greeks // Store Greeks for display
+      impliedVolatility: player.volatility
     };
-
-    return option;
   }
 
-  /**
-   * BLACK-SCHOLES OPTION PRICING
-   *
-   * Full implementation of Black-Scholes formula for European options
-   * Returns accurate premium based on:
-   * - Current underlying price (S)
-   * - Strike price (K)
-   * - Time to expiration (T)
-   * - Volatility (σ)
-   * - Risk-free rate (r)
-   */
   private calculatePremium(
     currentPrice: number,
     strikePrice: number,
@@ -160,125 +133,19 @@ class OptionsEngine {
     volatility: number,
     type: 'CALL' | 'PUT'
   ): number {
-    const T = Math.max(daysToExpiration / 365, 0.001); // Time in years (minimum 0.001)
-    const S = currentPrice;
-    const K = strikePrice;
-    const r = this.RISK_FREE_RATE;
-    const sigma = volatility;
+    // Simplified Black-Scholes model
+    const intrinsicValue = this.calculateIntrinsicValue(currentPrice, strikePrice, type);
 
-    // Black-Scholes d1 and d2
-    const d1 = (Math.log(S / K) + (r + (sigma ** 2) / 2) * T) / (sigma * Math.sqrt(T));
-    const d2 = d1 - sigma * Math.sqrt(T);
+    // Time value based on volatility and time
+    const timeValue =
+      volatility * currentPrice * Math.sqrt(daysToExpiration / 365) * 0.4;
 
-    // Calculate premium using cumulative normal distribution
-    let premium: number;
-    if (type === 'CALL') {
-      // Call: C = S*N(d1) - K*e^(-r*T)*N(d2)
-      premium = S * this.cumulativeNormal(d1) - K * Math.exp(-r * T) * this.cumulativeNormal(d2);
-    } else {
-      // Put: P = K*e^(-r*T)*N(-d2) - S*N(-d1)
-      premium = K * Math.exp(-r * T) * this.cumulativeNormal(-d2) - S * this.cumulativeNormal(-d1);
-    }
+    // Add some randomness for market dynamics
+    const marketNoise = (Math.random() - 0.5) * 0.1 * currentPrice;
 
-    // Ensure minimum premium (avoid negative or zero premiums)
-    return Math.max(parseFloat(premium.toFixed(2)), 0.05);
-  }
+    const premium = Math.max(0.1, intrinsicValue + timeValue + marketNoise);
 
-  /**
-   * CUMULATIVE NORMAL DISTRIBUTION
-   *
-   * Standard normal cumulative distribution function N(x)
-   * Uses rational approximation with error < 7.5e-8
-   */
-  private cumulativeNormal(x: number): number {
-    // Constants for approximation
-    const a1 = 0.31938153;
-    const a2 = -0.356563782;
-    const a3 = 1.781477937;
-    const a4 = -1.821255978;
-    const a5 = 1.330274429;
-    const p = 0.2316419;
-    const c = 0.39894228;
-
-    if (x >= 0.0) {
-      const t = 1.0 / (1.0 + p * x);
-      return (1.0 - c * Math.exp(-x * x / 2.0) * t *
-        (t * (t * (t * (t * a5 + a4) + a3) + a2) + a1));
-    } else {
-      const t = 1.0 / (1.0 - p * x);
-      return (c * Math.exp(-x * x / 2.0) * t *
-        (t * (t * (t * (t * a5 + a4) + a3) + a2) + a1));
-    }
-  }
-
-  /**
-   * CALCULATE OPTION GREEKS
-   *
-   * Delta: ∂V/∂S (price sensitivity)
-   * Gamma: ∂²V/∂S² (delta sensitivity)
-   * Theta: ∂V/∂t (time decay)
-   * Vega: ∂V/∂σ (volatility sensitivity)
-   * Rho: ∂V/∂r (interest rate sensitivity)
-   */
-  private calculateGreeks(
-    currentPrice: number,
-    strikePrice: number,
-    daysToExpiration: number,
-    volatility: number,
-    type: 'CALL' | 'PUT'
-  ): OptionGreeks {
-    const T = Math.max(daysToExpiration / 365, 0.001);
-    const S = currentPrice;
-    const K = strikePrice;
-    const r = this.RISK_FREE_RATE;
-    const sigma = volatility;
-
-    const d1 = (Math.log(S / K) + (r + (sigma ** 2) / 2) * T) / (sigma * Math.sqrt(T));
-    const d2 = d1 - sigma * Math.sqrt(T);
-
-    // Standard normal probability density function
-    const n_d1 = Math.exp(-d1 * d1 / 2) / Math.sqrt(2 * Math.PI);
-
-    // DELTA (price sensitivity)
-    let delta: number;
-    if (type === 'CALL') {
-      delta = this.cumulativeNormal(d1);
-    } else {
-      delta = this.cumulativeNormal(d1) - 1;
-    }
-
-    // GAMMA (delta sensitivity) - same for calls and puts
-    const gamma = n_d1 / (S * sigma * Math.sqrt(T));
-
-    // THETA (time decay per day) - convert from annual to daily
-    let theta: number;
-    if (type === 'CALL') {
-      theta = ((-S * n_d1 * sigma) / (2 * Math.sqrt(T)) -
-        r * K * Math.exp(-r * T) * this.cumulativeNormal(d2)) / 365;
-    } else {
-      theta = ((-S * n_d1 * sigma) / (2 * Math.sqrt(T)) +
-        r * K * Math.exp(-r * T) * this.cumulativeNormal(-d2)) / 365;
-    }
-
-    // VEGA (volatility sensitivity) - same for calls and puts
-    // Note: Vega is per 1% change in volatility
-    const vega = (S * Math.sqrt(T) * n_d1) / 100;
-
-    // RHO (interest rate sensitivity) - per 1% change in rate
-    let rho: number;
-    if (type === 'CALL') {
-      rho = (K * T * Math.exp(-r * T) * this.cumulativeNormal(d2)) / 100;
-    } else {
-      rho = (-K * T * Math.exp(-r * T) * this.cumulativeNormal(-d2)) / 100;
-    }
-
-    return {
-      delta: parseFloat(delta.toFixed(4)),
-      gamma: parseFloat(gamma.toFixed(4)),
-      theta: parseFloat(theta.toFixed(4)),
-      vega: parseFloat(vega.toFixed(4)),
-      rho: parseFloat(rho.toFixed(4))
-    };
+    return parseFloat(premium.toFixed(2));
   }
 
   private calculateIntrinsicValue(
@@ -331,17 +198,16 @@ class OptionsEngine {
       );
 
       // Recalculate Greeks (critical for real-time risk management)
-      const greeks = this.calculateGreeks(
-        player.currentPrice,
-        option.strikePrice,
-        daysToExpiration,
-        player.volatility,
-        option.type
-      );
-      option.greeks = greeks;
+      // TODO: Implement calculateGreeks method
+      option.greeks = {
+        delta: option.type === 'CALL' ? 0.5 : -0.5,
+        gamma: 0.05,
+        theta: -0.02,
+        vega: 0.2,
+        rho: 0.01
+      };
 
-      // Ensure time value is never negative
-      option.timeValue = Math.max(0, option.currentPrice - option.intrinsicValue);
+      option.timeValue = option.currentPrice - option.intrinsicValue;
       option.inTheMoney = option.intrinsicValue > 0;
     }
   }

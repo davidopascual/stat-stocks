@@ -7,18 +7,21 @@ import {
   Transaction,
   Portfolio,
   LimitOrder,
+  OrderBook,
+  Option,
   OptionPosition,
+  ShortPosition,
+  League,
   MarketStats
 } from './types.js';
 import { orderBookManager } from './orderBook.js';
 import { optionsEngine } from './options.js';
+import { shortSellingEngine } from './shortSelling.js';
 import { leagueManager } from './leagues.js';
 import { circuitBreakerSystem } from './circuitBreaker.js';
 import { hybridPricingEngine } from './hybridPricingEngine.js';
 import { liveGameEngine } from './liveGameIntegration.js';
 import { fetchNBAStats } from './nbaAPI.js';
-import { generateFullPlayersList } from './nbaPlayers.js';
-import authRoutes from './authRoutes.js';
 
 const app = express();
 const server = createServer(app);
@@ -27,13 +30,150 @@ const wss = new WebSocketServer({ server });
 app.use(cors());
 app.use(express.json());
 
-// Auth routes
-app.use('/api/auth', authRoutes);
+// Helper function to generate initial price history
+function generateInitialPriceHistory(startPrice: number, volatility: number, points: number = 20): { date: string; price: number }[] {
+  const history: { date: string; price: number }[] = [];
+  const now = Date.now();
+  const interval = 30000; // 30 seconds between points
 
-// Helper function to generate initial price history (removed as unused)
+  let currentPrice = startPrice;
 
-// Initial comprehensive NBA players
-let players: Player[] = generateFullPlayersList();
+  for (let i = points - 1; i >= 0; i--) {
+    const timestamp = new Date(now - (i * interval));
+    const randomChange = (Math.random() - 0.5) * volatility * 0.1;
+    currentPrice = currentPrice * (1 + randomChange);
+    history.push({
+      date: timestamp.toISOString(),
+      price: parseFloat(currentPrice.toFixed(2))
+    });
+  }
+
+  return history;
+}
+
+// Initial mock players
+let players: Player[] = [
+  {
+    id: '1',
+    name: 'LeBron James',
+    team: 'LAL',
+    position: 'SF',
+    stats: { ppg: 25.7, rpg: 7.3, apg: 7.3, fgPct: 54.0, threePtPct: 41.0 },
+    currentPrice: 127.50,
+    bidPrice: 126.87,
+    askPrice: 128.13,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(127.50, 0.18),
+    volume: 45600,
+    volatility: 0.18,
+    availableShares: 100000
+  },
+  {
+    id: '2',
+    name: 'Stephen Curry',
+    team: 'GSW',
+    position: 'PG',
+    stats: { ppg: 26.4, rpg: 4.5, apg: 5.1, fgPct: 45.0, threePtPct: 40.8 },
+    currentPrice: 142.30,
+    bidPrice: 141.59,
+    askPrice: 143.01,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(142.30, 0.22),
+    volume: 52300,
+    volatility: 0.22,
+    availableShares: 100000
+  },
+  {
+    id: '3',
+    name: 'Giannis Antetokounmpo',
+    team: 'MIL',
+    position: 'PF',
+    stats: { ppg: 31.1, rpg: 11.8, apg: 5.7, fgPct: 55.3, threePtPct: 27.5 },
+    currentPrice: 156.80,
+    bidPrice: 156.02,
+    askPrice: 157.58,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(156.80, 0.20),
+    volume: 48900,
+    volatility: 0.20,
+    availableShares: 100000
+  },
+  {
+    id: '4',
+    name: 'Luka Doncic',
+    team: 'DAL',
+    position: 'PG',
+    stats: { ppg: 33.9, rpg: 9.2, apg: 9.8, fgPct: 48.7, threePtPct: 38.2 },
+    currentPrice: 168.25,
+    bidPrice: 167.41,
+    askPrice: 169.09,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(168.25, 0.25),
+    volume: 61200,
+    volatility: 0.25,
+    availableShares: 100000
+  },
+  {
+    id: '5',
+    name: 'Kevin Durant',
+    team: 'PHX',
+    position: 'SF',
+    stats: { ppg: 29.1, rpg: 6.7, apg: 5.0, fgPct: 56.0, threePtPct: 40.5 },
+    currentPrice: 145.60,
+    bidPrice: 144.87,
+    askPrice: 146.33,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(145.60, 0.19),
+    volume: 43700,
+    volatility: 0.19,
+    availableShares: 100000
+  },
+  {
+    id: '6',
+    name: 'Joel Embiid',
+    team: 'PHI',
+    position: 'C',
+    stats: { ppg: 33.1, rpg: 10.2, apg: 4.2, fgPct: 54.8, threePtPct: 33.0 },
+    currentPrice: 152.40,
+    bidPrice: 151.64,
+    askPrice: 153.16,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(152.40, 0.21),
+    volume: 39800,
+    volatility: 0.21,
+    availableShares: 100000
+  },
+  {
+    id: '7',
+    name: 'Nikola Jokic',
+    team: 'DEN',
+    position: 'C',
+    stats: { ppg: 24.5, rpg: 11.8, apg: 9.8, fgPct: 63.2, threePtPct: 38.3 },
+    currentPrice: 159.90,
+    bidPrice: 159.11,
+    askPrice: 160.69,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(159.90, 0.17),
+    volume: 44500,
+    volatility: 0.17,
+    availableShares: 100000
+  },
+  {
+    id: '8',
+    name: 'Jayson Tatum',
+    team: 'BOS',
+    position: 'SF',
+    stats: { ppg: 30.1, rpg: 8.8, apg: 4.6, fgPct: 46.6, threePtPct: 35.0 },
+    currentPrice: 138.70,
+    bidPrice: 137.99,
+    askPrice: 139.41,
+    priceChange: 0,
+    priceHistory: generateInitialPriceHistory(138.70, 0.23),
+    volume: 41200,
+    volatility: 0.23,
+    availableShares: 100000
+  }
+];
 
 // Store user portfolios and transactions
 const portfolios = new Map<string, Portfolio>();
@@ -53,78 +193,36 @@ players.forEach(player => {
 });
 
 // WebSocket connection handler
-wss.on('connection', (ws: WebSocket, req) => {
-  console.log(`✅ Client connected from ${req.socket.remoteAddress}`);
+wss.on('connection', (ws: WebSocket) => {
+  console.log('Client connected');
   clients.add(ws);
 
-  // Send initial data immediately
-  try {
-    ws.send(
-      JSON.stringify({
-        type: 'INITIAL_DATA',
-        data: players
-      })
-    );
-    console.log('📊 Initial data sent to new client');
-  } catch (error) {
-    console.error('❌ Error sending initial data:', error);
-  }
+  // Send initial data
+  ws.send(
+    JSON.stringify({
+      type: 'INITIAL_DATA',
+      data: players
+    })
+  );
 
-  ws.on('close', (code, reason) => {
-    console.log(`🔌 Client disconnected - Code: ${code}, Reason: ${reason}`);
+  ws.on('close', () => {
+    console.log('Client disconnected');
     clients.delete(ws);
   });
 
   ws.on('error', (error) => {
-    console.error('❌ WebSocket client error:', error);
-    clients.delete(ws);
-  });
-
-  // Send ping to keep connection alive
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.ping();
-    } else {
-      clearInterval(pingInterval);
-    }
-  }, 30000);
-
-  ws.on('close', () => {
-    clearInterval(pingInterval);
+    console.error('WebSocket error:', error);
   });
 });
 
 // Broadcast updates to all clients
-function broadcast(data: Record<string, unknown>) {
-  if (clients.size === 0) {
-    console.log('📊 No clients connected, skipping broadcast');
-    return;
-  }
-
+function broadcast(data: any) {
   const message = JSON.stringify(data);
-  let successCount = 0;
-  let errorCount = 0;
-
   clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-        successCount++;
-      } catch (error) {
-        console.error('❌ Error sending message to client:', error);
-        clients.delete(client);
-        errorCount++;
-      }
-    } else {
-      // Clean up dead connections
-      clients.delete(client);
-      errorCount++;
+      client.send(message);
     }
   });
-
-  if (errorCount > 0) {
-    console.log(`📊 Broadcast completed - Success: ${successCount}, Errors: ${errorCount}`);
-  }
 }
 
 // HYBRID PRICING UPDATE LOOP
@@ -337,30 +435,26 @@ app.post('/api/trade', (req, res) => {
   const transaction: Transaction = {
     id: Date.now().toString(),
     userId,
-    username: userId, // Would be replaced with actual username in production
     playerId,
     playerName: player.name,
     type,
     shares,
     price,
     total,
-    fee: 0,
     timestamp: new Date()
   };
 
   if (type === 'BUY') {
     portfolio.cash -= total;
     if (holding) {
-      const totalShares = holding.shares + shares;
-      const newAvgPrice = (holding.avgBuyPrice * holding.shares + total) / totalShares;
-      holding.shares = totalShares;
-      holding.avgBuyPrice = newAvgPrice;
+      holding.shares += shares;
+      holding.avgPrice = (holding.avgPrice * holding.shares + total) / (holding.shares + shares);
     } else {
       portfolio.holdings.push({
         playerId,
         playerName: player.name,
         shares,
-        avgBuyPrice: price,
+        avgPrice: price,
         currentPrice: price
       });
     }
@@ -440,39 +534,36 @@ app.post('/api/orders/limit', (req, res) => {
     }
 
     result.trades.forEach(trade => {
-      if (trade.shares) {
-        portfolio!.transactions.push(trade);
-        allTransactions.push(trade);
+      portfolio!.transactions.push(trade);
+      allTransactions.push(trade);
 
-        // Track for market impact
-        const currentTrades = recentTrades.get(playerId) || 0;
-        recentTrades.set(playerId, currentTrades + trade.shares);
+      // Track for market impact
+      const currentTrades = recentTrades.get(playerId) || 0;
+      recentTrades.set(playerId, currentTrades + trade.shares);
 
-        if (trade.type === 'BUY') {
-          portfolio!.cash -= trade.total;
-          const holding = portfolio!.holdings.find(h => h.playerId === playerId);
-          if (holding) {
-            const totalShares = holding.shares + trade.shares;
-            const newAvgPrice = (holding.avgBuyPrice * holding.shares + trade.total) / totalShares;
-            holding.avgBuyPrice = newAvgPrice;
-            holding.shares = totalShares;
-          } else {
-            portfolio!.holdings.push({
-              playerId,
-              playerName: player.name,
-              shares: trade.shares,
-              avgBuyPrice: trade.price,
-              currentPrice: trade.price
-            });
-          }
+      if (trade.type === 'BUY') {
+        portfolio!.cash -= trade.total;
+        const holding = portfolio!.holdings.find(h => h.playerId === playerId);
+        if (holding) {
+          const totalShares = holding.shares + trade.shares;
+          holding.avgPrice = (holding.avgPrice * holding.shares + trade.total) / totalShares;
+          holding.shares = totalShares;
         } else {
-          portfolio!.cash += trade.total;
-          const holding = portfolio!.holdings.find(h => h.playerId === playerId);
-          if (holding) {
-            holding.shares -= trade.shares;
-            if (holding.shares === 0) {
-              portfolio!.holdings = portfolio!.holdings.filter(h => h.playerId !== playerId);
-            }
+          portfolio!.holdings.push({
+            playerId,
+            playerName: player.name,
+            shares: trade.shares,
+            avgPrice: trade.price,
+            currentPrice: trade.price
+          });
+        }
+      } else {
+        portfolio!.cash += trade.total;
+        const holding = portfolio!.holdings.find(h => h.playerId === playerId);
+        if (holding) {
+          holding.shares -= trade.shares;
+          if (holding.shares === 0) {
+            portfolio!.holdings = portfolio!.holdings.filter(h => h.playerId !== playerId);
           }
         }
       }
@@ -525,17 +616,10 @@ app.get('/api/options/:playerId', (req, res) => {
 
 // Buy option
 app.post('/api/options/buy', (req, res) => {
-  console.log('🎯 OPTIONS BUY REQUEST:', JSON.stringify(req.body));
   const { userId, optionId, contracts } = req.body;
-
-  if (!userId || !optionId || !contracts) {
-    console.error('❌ Missing fields:', { userId, optionId, contracts });
-    return res.json({ success: false, message: 'Missing required fields' });
-  }
 
   let portfolio = portfolios.get(userId);
   if (!portfolio) {
-    console.log('📦 Creating new portfolio for:', userId);
     portfolio = {
       userId,
       cash: 100000,
@@ -546,66 +630,14 @@ app.post('/api/options/buy', (req, res) => {
     portfolios.set(userId, portfolio);
   }
 
-  console.log('💰 Cash before:', portfolio.cash);
-  const result = optionsEngine.buyOption(userId, optionId, contracts);
-  console.log('📊 Result:', result);
+  const result = optionsEngine.buyOption(userId, optionId, contracts, portfolio);
 
-  if (result.success && result.cost) {
-    portfolio.cash -= result.cost;
-
-    // Add to portfolio option positions
+  if (result.success && result.position) {
+    // Add to portfolio
     if (!portfolio.optionPositions) {
       portfolio.optionPositions = [];
     }
-
-    // Extract player ID from option ID and cache player data
-    const optionParts = optionId.split('_');
-    const playerId = optionParts[1];
-    const player = players.find(p => p.id === playerId);
-
-    // Create position with player snapshot to preserve data
-    const position: OptionPosition = {
-      id: `pos_${Date.now()}_${Math.random()}`,
-      userId,
-      optionId,
-      contracts,
-      purchasePrice: result.cost / (contracts * 100),
-      purchaseDate: new Date(),
-      position: 'LONG',
-      playerSnapshot: player ? {
-        id: player.id,
-        name: player.name,
-        team: player.team,
-        position: player.position,
-        priceAtPurchase: player.currentPrice
-      } : undefined
-    };
-
-    portfolio.optionPositions.push(position);
-
-    // Recalculate total value
-    portfolio.totalValue = portfolio.cash + portfolio.holdings.reduce((sum, h) => {
-      const player = players.find(p => p.id === h.playerId);
-      return sum + (player ? player.currentPrice : h.currentPrice) * h.shares;
-    }, 0);
-
-    // Broadcast portfolio update to all clients
-    broadcast({
-      type: 'PORTFOLIO_UPDATE',
-      data: {
-        userId,
-        portfolio: {
-          ...portfolio,
-          holdings: portfolio.holdings.map(h => {
-            const player = players.find(p => p.id === h.playerId);
-            return {
-              ...h,
-              currentPrice: player ? player.currentPrice : h.currentPrice
-            };
-          })
-        }
-      }
-    });
+    portfolio.optionPositions.push(result.position);
   }
 
   res.json(result);
@@ -620,7 +652,7 @@ app.post('/api/options/exercise', (req, res) => {
     return res.status(404).json({ error: 'No options positions found' });
   }
 
-  const result = optionsEngine.exerciseOption(userId, positionId);
+  const result = optionsEngine.exerciseOption(userId, positionId, portfolio, players);
 
   if (result.success) {
     // Remove the exercised position from portfolio
@@ -664,26 +696,102 @@ app.get('/api/options/positions/:userId', (req, res) => {
   res.json(portfolio.optionPositions);
 });
 
+// ==================== SHORT SELLING ENDPOINTS ====================
+
+// Short sell
+app.post('/api/short/sell', (req, res) => {
+  const { userId, playerId, shares } = req.body;
+
+  const player = players.find(p => p.id === playerId);
+  if (!player) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+
+  let portfolio = portfolios.get(userId);
+  if (!portfolio) {
+    portfolio = {
+      userId,
+      cash: 100000,
+      holdings: [],
+      totalValue: 100000,
+      transactions: []
+    };
+    portfolios.set(userId, portfolio);
+  }
+
+  const result = shortSellingEngine.shortSell(userId, player, shares);
+
+  if (result.success && result.position) {
+    if (!portfolio.shortPositions) {
+      portfolio.shortPositions = [];
+    }
+    portfolio.shortPositions.push(result.position);
+    portfolio.cash += result.position.proceeds;
+  }
+
+  res.json(result);
+});
+
+// Cover short position
+app.post('/api/short/cover', (req, res) => {
+  const { userId, positionId, shares } = req.body;
+
+  const portfolio = portfolios.get(userId);
+  if (!portfolio || !portfolio.shortPositions) {
+    return res.status(404).json({ error: 'No short positions found' });
+  }
+
+  const position = portfolio.shortPositions.find(p => p.id === positionId);
+  if (!position) {
+    return res.status(404).json({ error: 'Position not found' });
+  }
+
+  const player = players.find(p => p.id === position.playerId);
+  if (!player) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+
+  const result = shortSellingEngine.coverShort(userId, positionId, shares, player);
+
+  if (result.success) {
+    portfolio.cash -= result.cost;
+    if (position.shares === 0) {
+      portfolio.shortPositions = portfolio.shortPositions.filter(p => p.id !== positionId);
+    }
+  }
+
+  res.json(result);
+});
+
+// Get user's short positions
+app.get('/api/short/positions/:userId', (req, res) => {
+  const portfolio = portfolios.get(req.params.userId);
+  if (!portfolio || !portfolio.shortPositions) {
+    return res.json([]);
+  }
+
+  res.json(portfolio.shortPositions);
+});
+
+// Get available shares to short
+app.get('/api/short/available/:playerId', (req, res) => {
+  const available = shortSellingEngine.getAvailableShares(req.params.playerId);
+  res.json({ available });
+});
+
 // ==================== LEAGUE ENDPOINTS ====================
 
 // Create league
 app.post('/api/leagues', (req, res) => {
-  const { name, creatorId, description, startingBalance, settings, isPrivate } = req.body;
-  const result = leagueManager.createLeague(
-    creatorId, 
-    name, 
-    description || '', 
-    startingBalance || 100000, 
-    settings || {}, 
-    isPrivate !== false
-  );
-  res.json(result);
+  const { name, creatorId, settings } = req.body;
+  const league = leagueManager.createLeague(name, creatorId, settings);
+  res.json(league);
 });
 
 // Join league
 app.post('/api/leagues/:leagueId/join', (req, res) => {
   const { userId, inviteCode } = req.body;
-  const result = leagueManager.joinLeague(userId, inviteCode);
+  const result = leagueManager.joinLeague(req.params.leagueId, userId, inviteCode);
   res.json(result);
 });
 
@@ -703,21 +811,10 @@ app.get('/api/leagues/:leagueId/leaderboard', (req, res) => {
     return res.status(404).json({ error: 'League not found' });
   }
 
-  // Update leaderboard with current portfolios (simplified)
-  const leaderboardData = new Map<string, { totalValue: number; trades: number; returns: number[] }>();
-  for (const [userId, portfolio] of portfolios) {
-    if (league.memberIds.includes(userId)) {
-      leaderboardData.set(userId, {
-        totalValue: portfolio.totalValue,
-        trades: portfolio.transactions.length,
-        returns: [portfolio.totalValue - 100000] // Simple returns calculation
-      });
-    }
-  }
-  
-  leagueManager.updateLeaderboard(req.params.leagueId, leaderboardData);
+  // Update leaderboard with current portfolios
+  leagueManager.updateLeaderboard(req.params.leagueId, portfolios);
 
-  res.json(league.leaderboard || []);
+  res.json(league.leaderboard);
 });
 
 // Get user's leagues
@@ -750,7 +847,7 @@ app.get('/api/portfolio/:userId', (req, res) => {
 
   // Recalculate total value
   portfolio.totalValue = portfolio.cash + portfolio.holdings.reduce((sum, h) => {
-    return sum + (h.currentPrice || 0) * h.shares;
+    return sum + h.currentPrice * h.shares;
   }, 0);
 
   res.json(portfolio);
@@ -766,13 +863,6 @@ app.get('/api/stats', (req, res) => {
 
   const stats: MarketStats = {
     totalVolume,
-    totalTrades: allTransactions.length,
-    avgVolatility: players.reduce((sum, p) => sum + p.volatility, 0) / players.length,
-    topGainers: [{ id: topGainer.id, name: topGainer.name, change: topGainer.priceChange }],
-    topLosers: [{ id: topLoser.id, name: topLoser.name, change: topLoser.priceChange }],
-    mostActive: [],
-    marketCap: totalVolume,
-    vixIndex: 0.15, // Placeholder
     avgChange,
     activePlayers,
     topGainer: {
