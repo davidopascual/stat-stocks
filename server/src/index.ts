@@ -5,6 +5,7 @@ import http from 'http';
 import { updatePlayerPrices, getPlayers } from './priceEngine.js';
 import { fetchNBAStats } from './nbaAPI.js';
 import { optionsEngine } from './options.js';
+import { leagueManager } from './leagues.js';
 import { Player } from './types.js';
 
 const app = express();
@@ -112,6 +113,80 @@ app.get('/api/stats/update', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to update stats' });
   }
+});
+
+// ========== LEAGUES ENDPOINTS ==========
+
+app.post('/api/leagues/create', (req, res) => {
+  const { creatorId, name, description, startingBalance, settings, isPrivate } = req.body;
+  const result = leagueManager.createLeague(
+    creatorId,
+    name,
+    description || '',
+    parseFloat(startingBalance) || 100000,
+    settings,
+    isPrivate !== false
+  );
+  res.json(result);
+});
+
+app.post('/api/leagues/join', (req, res) => {
+  const { userId, inviteCode } = req.body;
+  const result = leagueManager.joinLeague(userId, inviteCode);
+  res.json(result);
+});
+
+app.post('/api/leagues/:leagueId/leave', (req, res) => {
+  const { userId } = req.body;
+  const result = leagueManager.leaveLeague(userId, req.params.leagueId);
+  res.json(result);
+});
+
+app.delete('/api/leagues/:leagueId', (req, res) => {
+  const { userId } = req.body;
+  const result = leagueManager.deleteLeague(userId, req.params.leagueId);
+  res.json(result);
+});
+
+app.get('/api/leagues/:leagueId', (req, res) => {
+  const league = leagueManager.getLeague(req.params.leagueId);
+  if (league) {
+    res.json(league);
+  } else {
+    res.status(404).json({ error: 'League not found' });
+  }
+});
+
+app.get('/api/leagues/:leagueId/leaderboard', (req, res) => {
+  const leaderboard = leagueManager.getLeaderboard(req.params.leagueId);
+  if (leaderboard) {
+    res.json(leaderboard);
+  } else {
+    res.status(404).json({ error: 'League not found' });
+  }
+});
+
+app.get('/api/leagues/user/:userId', (req, res) => {
+  const leagues = leagueManager.getUserLeagues(req.params.userId);
+  res.json(leagues);
+});
+
+app.get('/api/leagues/public', (req, res) => {
+  const leagues = leagueManager.getPublicLeagues();
+  res.json(leagues);
+});
+
+// Portfolio endpoint for trading context
+app.get('/api/portfolio/:userId', (req, res) => {
+  res.json({
+    userId: req.params.userId,
+    cash: 100000,
+    holdings: {},
+    totalValue: 100000,
+    transactions: [],
+    optionPositions: [],
+    shortPositions: []
+  });
 });
 
 // WebSocket connection handling

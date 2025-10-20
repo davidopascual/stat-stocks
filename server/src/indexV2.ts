@@ -10,6 +10,7 @@ import { shortSellingEngine } from './shortSelling.js';
 import { leagueManager } from './leagues.js';
 import { circuitBreakerSystem } from './circuitBreaker.js';
 import { LimitOrder } from './types.js';
+import authRoutes from './authRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +18,9 @@ const wss = new WebSocketServer({ server });
 
 app.use(cors());
 app.use(express.json());
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 // ========== PLAYER ENDPOINTS ==========
 

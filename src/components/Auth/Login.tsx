@@ -18,25 +18,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernameOrEmail, password })
-      });
+      // Temporary bypass: create a mock user
+      const mockUser = {
+        id: usernameOrEmail || 'user1',
+        username: usernameOrEmail || 'Guest',
+        email: `${usernameOrEmail}@example.com`,
+        displayName: usernameOrEmail || 'Guest User'
+      };
 
-      const data = await response.json();
+      const mockToken = 'mock-token-' + Date.now();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
+      // Save to localStorage
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      localStorage.setItem('userId', mockUser.id);
 
-      // Save token and user
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      onLogin(data.token, data.user);
+      onLogin(mockToken, mockUser);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Login failed');
     } finally {
       setLoading(false);
     }
