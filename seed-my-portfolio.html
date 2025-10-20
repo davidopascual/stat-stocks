@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed Your Portfolio</title>
+    <style>
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0e27;
+            color: #e7e9ea;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .container {
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 12px;
+            padding: 30px;
+        }
+        h1 {
+            color: #1d9bf0;
+            margin-top: 0;
+        }
+        button {
+            background: #1d9bf0;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #1a8cd8;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 3px solid #1d9bf0;
+        }
+        .success {
+            background: #0f2b1a;
+            border-left-color: #00c805;
+        }
+        .error {
+            background: #2b0f0f;
+            border-left-color: #ff5252;
+        }
+        .user-info {
+            font-family: 'SF Mono', Consolas, monospace;
+            background: #0f1419;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+        }
+        .step-number {
+            background: #1d9bf0;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏀 Seed Your StatStocks Portfolio</h1>
+
+        <div class="info">
+            <strong>This will populate your portfolio with 7 demo positions for screenshots.</strong>
+            <br><br>
+            Players included: LeBron, Curry, Durant, Giannis, Jokic, Embiid, Tatum
+        </div>
+
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Your User ID:</strong>
+            <div class="user-info" id="userId">Loading...</div>
+        </div>
+
+        <div class="step">
+            <span class="step-number">2</span>
+            <strong>Click to seed portfolio:</strong>
+            <button id="seedBtn" onclick="seedPortfolio()">Seed My Portfolio</button>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="info" style="margin-top: 30px;">
+            <strong>After seeding:</strong><br>
+            1. Refresh your StatStocks app<br>
+            2. Go to Portfolio tab<br>
+            3. You should see 7 positions with P&L
+        </div>
+    </div>
+
+    <script>
+        // Get userId from localStorage
+        const userId = localStorage.getItem('userId') || localStorage.getItem('user') || 'demo-user';
+        document.getElementById('userId').textContent = userId;
+
+        async function seedPortfolio() {
+            const btn = document.getElementById('seedBtn');
+            const resultDiv = document.getElementById('result');
+
+            btn.disabled = true;
+            btn.textContent = 'Seeding...';
+
+            try {
+                const response = await fetch('http://localhost:3001/api/seed-demo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="info success" style="margin-top: 20px;">
+                            <strong>✅ Success!</strong><br><br>
+                            Portfolio seeded with:<br>
+                            • ${result.portfolio.holdings} positions<br>
+                            • Cash: $${result.portfolio.cash.toLocaleString()}<br>
+                            • Total Value: $${result.portfolio.totalValue.toLocaleString()}<br>
+                            • ${result.portfolio.transactions} transactions<br><br>
+                            <strong>Now refresh your StatStocks app and go to Portfolio!</strong>
+                        </div>
+                    `;
+                    btn.textContent = '✅ Portfolio Seeded!';
+                } else {
+                    throw new Error(result.message || 'Failed to seed portfolio');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="info error" style="margin-top: 20px;">
+                        <strong>❌ Error:</strong><br>
+                        ${error.message}<br><br>
+                        Make sure backend is running: <code>cd server && npm run dev:hybrid</code>
+                    </div>
+                `;
+                btn.disabled = false;
+                btn.textContent = 'Try Again';
+            }
+        }
+    </script>
+</body>
+</html>

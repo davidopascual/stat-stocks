@@ -1,0 +1,214 @@
+.position-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: all var(--transition-base);
+  animation: slideInUp 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.position-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  transition: background var(--transition-base);
+}
+
+.position-card:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.position-card:hover::before {
+  background: var(--accent-primary);
+}
+
+.position-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.position-info {
+  flex: 1;
+}
+
+.position-player-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.position-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.position-dot {
+  color: var(--text-tertiary);
+}
+
+.position-avg {
+  font-family: var(--font-mono);
+}
+
+.position-pnl {
+  text-align: right;
+}
+
+.pnl-amount {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  margin-bottom: 4px;
+}
+
+.pnl-percent {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.position-pnl.positive .pnl-amount,
+.position-pnl.positive .pnl-percent {
+  color: var(--color-positive);
+}
+
+.position-pnl.negative .pnl-amount,
+.position-pnl.negative .pnl-percent {
+  color: var(--color-negative);
+}
+
+.position-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.position-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.price-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.price-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.price-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.position-sparkline {
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity var(--transition-base);
+}
+
+.position-card:hover .position-sparkline {
+  opacity: 1;
+}
+
+.position-card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.position-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-secondary);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.position-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.position-action-btn.view:hover {
+  background: var(--color-info-bg);
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.position-action-btn.buy:hover {
+  background: var(--color-positive-bg);
+  border-color: var(--color-positive);
+  color: var(--color-positive);
+}
+
+.position-action-btn.sell:hover {
+  background: var(--color-negative-bg);
+  border-color: var(--color-negative);
+  color: var(--color-negative);
+}
+
+.position-action-btn:active {
+  transform: translateY(0);
+}
+
+/* Stagger animation for multiple cards */
+.position-card:nth-child(1) { animation-delay: 0.05s; }
+.position-card:nth-child(2) { animation-delay: 0.1s; }
+.position-card:nth-child(3) { animation-delay: 0.15s; }
+.position-card:nth-child(4) { animation-delay: 0.2s; }
+.position-card:nth-child(5) { animation-delay: 0.25s; }
+.position-card:nth-child(6) { animation-delay: 0.3s; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .position-card-body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .position-sparkline {
+    align-self: flex-end;
+  }
+
+  .position-action-btn span {
+    display: none;
+  }
+}

@@ -1,0 +1,314 @@
+.watchlist-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 600px;
+}
+
+.watchlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.watchlist-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.watchlist-title h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.watchlist-add-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.watchlist-add-btn:hover {
+  background: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+.watchlist-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.watchlist-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.watchlist-item {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.watchlist-item:last-child {
+  border-bottom: none;
+}
+
+.watchlist-item:hover {
+  background: var(--bg-hover);
+}
+
+.watchlist-item-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.watchlist-item-info {
+  flex: 1;
+}
+
+.watchlist-player-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.watchlist-player-team {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.watchlist-remove-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 0;
+}
+
+.watchlist-item:hover .watchlist-remove-btn {
+  opacity: 1;
+}
+
+.watchlist-remove-btn:hover {
+  background: var(--color-negative-bg);
+  color: var(--color-negative);
+}
+
+.watchlist-item-price {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.watchlist-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.watchlist-change {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.watchlist-change.positive {
+  color: var(--color-positive);
+}
+
+.watchlist-change.negative {
+  color: var(--color-negative);
+}
+
+.watchlist-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.empty-icon {
+  opacity: 0.2;
+  margin-bottom: 16px;
+}
+
+.watchlist-empty p {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.watchlist-add-first-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.watchlist-add-first-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Modal Styles */
+.watchlist-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.watchlist-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl);
+  animation: scaleIn 0.3s ease-out;
+}
+
+.watchlist-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.watchlist-modal-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.watchlist-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.watchlist-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.watchlist-modal-search {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.watchlist-modal-search input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all var(--transition-fast);
+}
+
+.watchlist-modal-search input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--bg-card);
+}
+
+.watchlist-modal-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.watchlist-modal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.watchlist-modal-item:last-child {
+  border-bottom: none;
+}
+
+.watchlist-modal-item:hover {
+  background: var(--bg-hover);
+}
+
+.modal-item-info {
+  flex: 1;
+}
+
+.modal-item-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.modal-item-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.modal-item-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
