@@ -1,6 +1,15 @@
 -- NBA Stock Market - Supabase Database Schema (Clean Version)
 -- Run this in your Supabase SQL Editor
 
+-- First, drop all existing tables if you're re-running this (CAREFUL!)
+-- Uncomment the lines below only if you want to start fresh
+-- DROP TABLE IF EXISTS leaderboard_entries CASCADE;
+-- DROP TABLE IF EXISTS option_positions CASCADE;
+-- DROP TABLE IF EXISTS transactions CASCADE;
+-- DROP TABLE IF EXISTS positions CASCADE;
+-- DROP TABLE IF EXISTS leagues CASCADE;
+-- DROP TABLE IF EXISTS users CASCADE;
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -43,7 +52,9 @@ CREATE INDEX IF NOT EXISTS idx_positions_user_id ON positions(user_id);
 CREATE INDEX IF NOT EXISTS idx_positions_player_id ON positions(player_id);
 
 -- ========== TRANSACTIONS TABLE ==========
-CREATE TABLE IF NOT EXISTS transactions (
+DROP TABLE IF EXISTS transactions CASCADE;
+
+CREATE TABLE transactions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('BUY', 'SELL', 'OPTION_BUY', 'OPTION_SELL', 'OPTION_EXERCISE', 'SHORT_SELL', 'SHORT_COVER')),
@@ -52,12 +63,14 @@ CREATE TABLE IF NOT EXISTS transactions (
   shares INTEGER NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
   total DECIMAL(15, 2) NOT NULL,
-  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create indexes for transactions
-CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp DESC);
+CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX idx_transactions_timestamp ON transactions(timestamp DESC);
+CREATE INDEX idx_transactions_created_at ON transactions(created_at DESC);
 
 -- ========== LEAGUES TABLE ==========
 CREATE TABLE IF NOT EXISTS leagues (
