@@ -69,30 +69,46 @@ const LeagueManagement: React.FC = () => {
 
   const handleCreateLeague = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    console.log('🎯 Create league clicked!');
+    console.log('User:', user);
+    
+    if (!user) {
+      console.error('❌ No user found!');
+      alert('You must be logged in to create a league');
+      return;
+    }
+
+    console.log('📝 League data:', newLeague);
 
     try {
+      const payload = {
+        creatorId: user.id,
+        name: newLeague.name,
+        description: newLeague.description,
+        startingBalance: newLeague.startingBalance,
+        settings: {
+          allowShortSelling: newLeague.allowShortSelling,
+          allowOptions: newLeague.allowOptions
+        },
+        isPrivate: false
+      };
+
+      console.log('📤 Sending request:', payload);
+
       const response = await fetch('http://localhost:3001/api/leagues/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          creatorId: user.id,
-          name: newLeague.name,
-          description: newLeague.description,
-          startingBalance: newLeague.startingBalance,
-          settings: {
-            allowShortSelling: newLeague.allowShortSelling,
-            allowOptions: newLeague.allowOptions
-          },
-          isPrivate: false
-        })
+        body: JSON.stringify(payload)
       });
 
+      console.log('📥 Response status:', response.status);
       const data = await response.json();
+      console.log('📥 Response data:', data);
 
       if (response.ok && data.success) {
+        console.log('✅ League created successfully!');
         // Add the new league to the list
         setLeagues([data.league, ...leagues]);
         setShowCreateForm(false);
@@ -103,12 +119,13 @@ const LeagueManagement: React.FC = () => {
           allowShortSelling: false,
           allowOptions: false
         });
-        alert(`League created! Invite code: ${data.league.inviteCode}`);
+        alert(`League created! Invite code: ${data.inviteCode || data.league.inviteCode}`);
       } else {
+        console.error('❌ Failed:', data.message);
         alert(data.message || 'Failed to create league');
       }
     } catch (error) {
-      console.error('Failed to create league:', error);
+      console.error('❌ Error creating league:', error);
       alert('Error creating league. Please try again.');
     }
   };

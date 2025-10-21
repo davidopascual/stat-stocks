@@ -43,11 +43,8 @@ class LeagueManager {
 
     this.leagues.set(leagueId, league);
 
-    // Add league to creator's leagues
-    const creator = this.users.get(creatorId);
-    if (creator) {
-      creator.leagueIds.push(leagueId);
-    }
+    // Note: User's league association is managed separately in the user service
+    // No need to update user here since we're using hybrid storage
 
     // Initialize leaderboard
     this.initializeLeaderboard(leagueId);
@@ -78,13 +75,8 @@ class LeagueManager {
 
     league.memberIds.push(userId);
 
-    const user = this.users.get(userId);
-    if (user) {
-      user.leagueIds.push(league.id);
-      // Reset user balance to league starting balance
-      user.cash = league.startingBalance;
-      user.startingBalance = league.startingBalance;
-    }
+    // Note: User's league association and balance reset is managed separately
+    // in the user service using hybrid storage
 
     return { success: true, message: 'Successfully joined league', league };
   }
@@ -274,12 +266,11 @@ class LeagueManager {
 
   // Get all leagues for a user
   getUserLeagues(userId: string): League[] {
-    const user = this.users.get(userId);
-    if (!user) return [];
-
-    return user.leagueIds
-      .map(id => this.leagues.get(id))
-      .filter((league): league is League => league !== undefined);
+    // Instead of relying on user.leagueIds (which is in hybrid storage),
+    // search through all leagues for ones where the user is a member
+    return Array.from(this.leagues.values()).filter(
+      league => league.memberIds.includes(userId)
+    );
   }
 
   // Get public leagues
@@ -307,7 +298,9 @@ class LeagueManager {
       percentageReturn: 0,
       startingBalance,
       createdAt: new Date(),
-      leagueIds: []
+      leagueIds: [],
+      positions: [],
+      transactions: []
     };
 
     this.users.set(userId, user);
