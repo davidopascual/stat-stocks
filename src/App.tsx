@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { TradingProvider, useTradingContext } from './context/TradingContext';
+import Login from './components/Auth/Login';
+import Register from './components/Auth/Register';
 import MarketView from './components/MarketView';
 import PlayerDetailAdvanced from './components/PlayerDetailAdvanced';
 import PortfolioView from './components/PortfolioView';
+import LeagueManagement from './components/LeagueManagement';
 import { Player } from './types';
 import { useWebSocket } from './hooks/useWebSocket';
 import './App.css';
 import './AdvancedFeatures.css';
 
-type View = 'market' | 'portfolio';
+type View = 'market' | 'portfolio' | 'leagues';
 
 const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('market');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const { balance, getTotalValue } = useTradingContext();
-  const { players, isConnected } = useWebSocket();
+  const { players } = useWebSocket();
+  const { user, logout } = useAuth();
 
   const handleSelectPlayer = (player: Player) => {
     setSelectedPlayer(player);
@@ -70,9 +75,29 @@ const AppContent: React.FC = () => {
               >
                 Portfolio
               </button>
+              <button
+                className={`nav-btn ${currentView === 'leagues' ? 'active' : ''}`}
+                onClick={() => {
+                  setCurrentView('leagues');
+                  setSelectedPlayer(null);
+                }}
+              >
+                Leagues
+              </button>
             </nav>
           </div>
           <div className="user-info">
+            <div className="user-profile">
+              <div className="user-avatar">
+                {user?.displayName?.charAt(0).toUpperCase() || '?'}
+              </div>
+              <div className="user-details">
+                <div className="user-name">{user?.displayName || 'Guest'}</div>
+                <button className="logout-btn" onClick={logout}>
+                  Logout
+                </button>
+              </div>
+            </div>
             <div className="balance-display">
               <div className="balance-label">Cash Balance</div>
               <div className="balance-amount">
@@ -91,8 +116,10 @@ const AppContent: React.FC = () => {
           <PlayerDetailAdvanced player={selectedPlayer} onBack={handleBack} />
         ) : currentView === 'market' ? (
           <MarketView onSelectPlayer={handleSelectPlayer} players={players} />
+        ) : currentView === 'portfolio' ? (
+          <PortfolioView onSelectPlayer={handleSelectPlayerById} players={players} />
         ) : (
-          <PortfolioView onSelectPlayer={handleSelectPlayerById} />
+          <LeagueManagement />
         )}
       </main>
     </div>
@@ -100,6 +127,38 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const [showRegister, setShowRegister] = useState(false);
+  
+  return (
+    <AuthProvider>
+      <AuthWrapper 
+        showRegister={showRegister} 
+        setShowRegister={setShowRegister} 
+      />
+    </AuthProvider>
+  );
+};
+
+const AuthWrapper: React.FC<{ 
+  showRegister: boolean; 
+  setShowRegister: (show: boolean) => void; 
+}> = ({ showRegister, setShowRegister }) => {
+  const { user, login } = useAuth();
+
+  if (!user) {
+    return showRegister ? (
+      <Register
+        onRegister={login}
+        onSwitchToLogin={() => setShowRegister(false)}
+      />
+    ) : (
+      <Login
+        onLogin={login}
+        onSwitchToRegister={() => setShowRegister(true)}
+      />
+    );
+  }
+
   return (
     <TradingProvider>
       <AppContent />

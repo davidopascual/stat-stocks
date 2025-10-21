@@ -81,12 +81,12 @@ router.post(
  * GET /api/auth/me
  * Get current user profile (protected)
  */
-router.get('/me', authenticateToken, (req: AuthRequest, res: Response) => {
+router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const user = getUserById(req.user.id);
+  const user = await getUserById(req.user.id);
 
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
@@ -106,7 +106,7 @@ router.put(
     body('displayName').optional().trim().isLength({ min: 1 }),
     body('avatar').optional().trim().isURL()
   ],
-  (req: AuthRequest, res: Response) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -118,7 +118,7 @@ router.put(
 
     const { displayName, avatar } = req.body;
 
-    const result = updateUserProfile(req.user.id, { displayName, avatar });
+    const result = await updateUserProfile(req.user.id, { displayName, avatar });
 
     if (!result.success) {
       return res.status(400).json({ error: result.message });

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
+import { supabase } from './supabase.js';
 
 // JWT Secret - In production, use environment variable
 const JWT_SECRET = process.env.JWT_SECRET || 'nba-stock-market-secret-key-change-in-production';
@@ -25,8 +26,30 @@ export interface AuthRequest extends Request {
   };
 }
 
-// In-memory user storage (will be replaced with database)
-const users = new Map<string, User>();
+// No longer using in-memory storage - all data is in Supabase
+// However, we'll use a hybrid approach for resilience
+
+// Temporary in-memory fallback if Supabase isn't ready
+const inMemoryUsers = new Map<string, any>();
+
+// Check if Supabase is available
+let useSupabase = true;
+
+async function checkSupabaseConnection() {
+  try {
+    const { error } = await supabase.from('users').select('id').limit(1);
+    if (error && error.message.includes('Invalid API key')) {
+      console.warn('⚠️  Supabase not configured - using in-memory storage');
+      useSupabase = false;
+    }
+  } catch (err) {
+    console.warn('⚠️  Supabase connection failed - using in-memory storage');
+    useSupabase = false;
+  }
+}
+
+// Check connection on startup
+checkSupabaseConnection();
 
 /**
  * Hash password with bcrypt
@@ -109,12 +132,36 @@ export async function registerUser(
   }
 
   // Check if username or email already exists
-  for (const user of users.values()) {
-    if (user.username.toLowerCase() === username.toLowerCase()) {
+  if (useSupabase) {
+    // Check in Supabase
+    const { data: existingByUsername } = await supabase
+      .from('users')
+      .select('username')
+      .eq('username', username)
+      .single();
+
+    if (existingByUsername) {
       return { success: false, message: 'Username already taken' };
     }
-    if (user.email.toLowerCase() === email.toLowerCase()) {
+
+    const { data: existingByEmail } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (existingByEmail) {
       return { success: false, message: 'Email already registered' };
+    }
+  } else {
+    // Check in-memory
+    for (const user of inMemoryUsers.values()) {
+      if (user.username.toLowerCase() === username.toLowerCase()) {
+        return { success: false, message: 'Username already taken' };
+      }
+      if (user.email.toLowerCase() === email.toLowerCase()) {
+        return { success: false, message: 'Email already registered' };
+      }
     }
   }
 
@@ -122,28 +169,56 @@ export async function registerUser(
   const userId = Date.now().toString();
   const passwordHash = await hashPassword(password);
 
-  const user: User = {
+  const newUser = {
     id: userId,
     username,
     email: email.toLowerCase(),
-    passwordHash,
-    displayName: displayName || username,
-    createdAt: new Date(),
-    lastLogin: new Date()
+    password_hash: passwordHash,
+    display_name: displayName || username,
+    cash: 10000, // Starting balance
+    starting_balance: 10000,
+    league_ids: [],
+    created_at: new Date().toISOString(),
+    last_login: new Date().toISOString()
   };
 
-  users.set(userId, user);
+  if (useSupabase) {
+    // Store in Supabase
+    const { data: insertedUser, error: insertError } = await supabase
+      .from('users')
+      .insert(newUser)
+      .select()
+      .single();
+
+    if (insertError || !insertedUser) {
+      console.error('Error inserting user:', insertError);
+      console.error('User data attempted:', newUser);
+      // Fall back to in-memory
+      console.warn('⚠️  Falling back to in-memory storage for this user');
+      inMemoryUsers.set(userId, newUser);
+    }
+  } else {
+    // Store in-memory
+    inMemoryUsers.set(userId, newUser);
+  }
 
   // Generate token
   const token = generateToken(userId, username, email);
 
   // Return user without password
-  const { passwordHash: _, ...userWithoutPassword } = user;
+  const userResponse = {
+    id: userId,
+    username: username,
+    email: email.toLowerCase(),
+    displayName: displayName || username,
+    createdAt: new Date(),
+    lastLogin: new Date()
+  };
 
   return {
     success: true,
     message: 'Registration successful',
-    user: userWithoutPassword,
+    user: userResponse,
     token
   };
 }
@@ -155,16 +230,40 @@ export async function loginUser(
   usernameOrEmail: string,
   password: string
 ): Promise<{ success: boolean; message: string; user?: Omit<User, 'passwordHash'>; token?: string }> {
-  // Find user by username or email
-  let foundUser: User | undefined;
+  let foundUser: any = null;
 
-  for (const user of users.values()) {
-    if (
-      user.username.toLowerCase() === usernameOrEmail.toLowerCase() ||
-      user.email.toLowerCase() === usernameOrEmail.toLowerCase()
-    ) {
-      foundUser = user;
-      break;
+  if (useSupabase) {
+    // Try to find user by username first in Supabase
+    let { data, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', usernameOrEmail)
+      .single();
+
+    // If not found by username, try by email
+    if (!data || fetchError) {
+      const result = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', usernameOrEmail.toLowerCase())
+        .single();
+      
+      data = result.data;
+    }
+
+    foundUser = data;
+  }
+  
+  // If not found in Supabase or not using Supabase, check in-memory
+  if (!foundUser) {
+    for (const user of inMemoryUsers.values()) {
+      if (
+        user.username.toLowerCase() === usernameOrEmail.toLowerCase() ||
+        user.email.toLowerCase() === usernameOrEmail.toLowerCase()
+      ) {
+        foundUser = user;
+        break;
+      }
     }
   }
 
@@ -173,25 +272,39 @@ export async function loginUser(
   }
 
   // Verify password
-  const isValidPassword = await comparePassword(password, foundUser.passwordHash);
+  const isValidPassword = await comparePassword(password, foundUser.password_hash);
 
   if (!isValidPassword) {
     return { success: false, message: 'Invalid credentials' };
   }
 
   // Update last login
-  foundUser.lastLogin = new Date();
+  foundUser.last_login = new Date().toISOString();
+  
+  if (useSupabase) {
+    await supabase
+      .from('users')
+      .update({ last_login: foundUser.last_login })
+      .eq('id', foundUser.id);
+  }
 
   // Generate token
   const token = generateToken(foundUser.id, foundUser.username, foundUser.email);
 
   // Return user without password
-  const { passwordHash: _, ...userWithoutPassword } = foundUser;
+  const userResponse = {
+    id: foundUser.id,
+    username: foundUser.username,
+    email: foundUser.email,
+    displayName: foundUser.display_name,
+    createdAt: new Date(foundUser.created_at),
+    lastLogin: new Date()
+  };
 
   return {
     success: true,
     message: 'Login successful',
-    user: userWithoutPassword,
+    user: userResponse,
     token
   };
 }
@@ -199,57 +312,121 @@ export async function loginUser(
 /**
  * Get user by ID
  */
-export function getUserById(userId: string): Omit<User, 'passwordHash'> | null {
-  const user = users.get(userId);
-  if (!user) return null;
+export async function getUserById(userId: string): Promise<Omit<User, 'passwordHash'> | null> {
+  let user: any = null;
 
-  const { passwordHash: _, ...userWithoutPassword } = user;
-  return userWithoutPassword;
+  if (useSupabase) {
+    const { data } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    user = data;
+  }
+
+  // Check in-memory if not found
+  if (!user) {
+    user = inMemoryUsers.get(userId);
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    displayName: user.display_name,
+    avatar: user.avatar,
+    createdAt: new Date(user.created_at || user.createdAt),
+    lastLogin: new Date(user.last_login || user.lastLogin)
+  } as Omit<User, 'passwordHash'>;
+}
+
+// Export the in-memory users for use by other services
+export function getInMemoryUsers(): Map<string, any> {
+  return inMemoryUsers;
+}
+
+export function isUsingSupabase(): boolean {
+  return useSupabase;
 }
 
 /**
  * Get all users (admin)
  */
-export function getAllUsers(): Omit<User, 'passwordHash'>[] {
-  return Array.from(users.values()).map(user => {
-    const { passwordHash: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  });
+export async function getAllUsers(): Promise<Omit<User, 'passwordHash'>[]> {
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('*');
+
+  if (error || !users) {
+    console.error('Error fetching all users:', error);
+    return [];
+  }
+
+  return users.map(user => ({
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    displayName: user.display_name,
+    avatar: user.avatar,
+    createdAt: new Date(user.created_at),
+    lastLogin: new Date(user.last_login)
+  } as Omit<User, 'passwordHash'>));
 }
 
 /**
  * Update user profile
  */
-export function updateUserProfile(
+export async function updateUserProfile(
   userId: string,
   updates: { displayName?: string; avatar?: string }
-): { success: boolean; message: string; user?: Omit<User, 'passwordHash'> } {
-  const user = users.get(userId);
-
-  if (!user) {
-    return { success: false, message: 'User not found' };
-  }
-
+): Promise<{ success: boolean; message: string; user?: Omit<User, 'passwordHash'> }> {
+  const updateData: Record<string, string> = {};
+  
   if (updates.displayName) {
-    user.displayName = updates.displayName;
+    updateData.display_name = updates.displayName;
   }
 
   if (updates.avatar) {
-    user.avatar = updates.avatar;
+    updateData.avatar = updates.avatar;
   }
 
-  const { passwordHash: _, ...userWithoutPassword } = user;
+  const { data: user, error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error || !user) {
+    console.error('Error updating user profile:', error);
+    return { success: false, message: 'User not found' };
+  }
+
+  const userResponse = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    displayName: user.display_name,
+    avatar: user.avatar,
+    createdAt: new Date(user.created_at),
+    lastLogin: new Date(user.last_login)
+  } as Omit<User, 'passwordHash'>;
 
   return {
     success: true,
     message: 'Profile updated',
-    user: userWithoutPassword
+    user: userResponse
   };
 }
 
 /**
- * Export users map for database migration
+ * Export users map for database migration (deprecated - now using Supabase)
  */
-export function getUsersMap(): Map<string, User> {
-  return users;
+export async function getUsersMap(): Promise<Map<string, User>> {
+  console.warn('getUsersMap is deprecated - data is now in Supabase');
+  return new Map();
 }

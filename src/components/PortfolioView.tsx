@@ -10,6 +10,9 @@ interface PortfolioViewProps {
 const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectPlayer, players }) => {
   const { balance, positions, transactions, getTotalValue } = useTradingContext();
 
+  // Placeholder for options (coming soon)
+  const optionPositions: any[] = [];
+
   // Calculate stock positions value and P&L
   const stockPositionsValue = positions.reduce(
     (sum, pos) => sum + pos.currentPrice * pos.shares,

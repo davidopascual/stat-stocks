@@ -35,6 +35,9 @@ export interface User {
   startingBalance: number;
   createdAt: Date;
   leagueIds: string[];
+  positions: Position[];
+  transactions: Transaction[];
+  optionPositions?: OptionPosition[];
 }
 
 export interface Position {

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
@@ -11,6 +14,7 @@ import { leagueManager } from './leagues.js';
 import { circuitBreakerSystem } from './circuitBreaker.js';
 import { LimitOrder } from './types.js';
 import authRoutes from './authRoutes.js';
+import { hybridStorage } from './hybridStorage.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -146,6 +150,161 @@ app.get('/api/short/positions/:userId', (req, res) => {
 app.get('/api/short/available/:playerId', (req, res) => {
   const available = shortSellingEngine.getAvailableShares(req.params.playerId);
   res.json({ playerId: req.params.playerId, availableShares: available });
+});
+
+// ========== TRADING ENDPOINTS ==========
+
+app.post('/api/trade', async (req, res) => {
+  const { userId, playerId, type, shares } = req.body;
+  
+  const player = getPlayer(playerId);
+  if (!player) {
+    return res.json({ success: false, message: 'Player not found' });
+  }
+
+  const user = await hybridStorage.getUser(userId);
+  if (!user) {
+    return res.json({ success: false, message: 'User not found' });
+  }
+
+  const numShares = parseInt(shares);
+  const currentPrice = player.currentPrice;
+
+  if (type === 'BUY') {
+    const cost = currentPrice * numShares;
+    
+    if (user.cash < cost) {
+      return res.json({ success: false, message: 'Insufficient funds' });
+    }
+
+    // Update user cash
+    const newCash = user.cash - cost;
+    await hybridStorage.updateUserCash(userId, newCash);
+
+    // Update or create position
+    const position = user.positions.find((p: any) => p.playerId === playerId);
+    if (position) {
+      const totalShares = position.shares + numShares;
+      const totalCost = (position.avgBuyPrice * position.shares) + cost;
+      const newAvgPrice = totalCost / totalShares;
+      
+      await hybridStorage.upsertPosition(userId, {
+        player_id: playerId,
+        player_name: player.name,
+        shares: totalShares,
+        avg_buy_price: newAvgPrice,
+        type: 'LONG'
+      });
+    } else {
+      await hybridStorage.upsertPosition(userId, {
+        player_id: playerId,
+        player_name: player.name,
+        shares: numShares,
+        avg_buy_price: currentPrice,
+        type: 'LONG'
+      });
+    }
+
+    // Add transaction
+    await hybridStorage.addTransaction(userId, {
+      type: 'BUY',
+      player_id: playerId,
+      player_name: player.name,
+      shares: numShares,
+      price: currentPrice,
+      total: cost
+    });
+
+    // Fetch updated data
+    const positions = await hybridStorage.getUserPositions(userId);
+    const transactions = await hybridStorage.getUserTransactions(userId);
+
+    return res.json({ 
+      success: true, 
+      message: `Bought ${numShares} shares of ${player.name}`,
+      portfolio: {
+        cash: newCash,
+        holdings: positions,
+        transactions
+      }
+    });
+  } else if (type === 'SELL') {
+    const position = user.positions.find((p: any) => p.playerId === playerId);
+    
+    if (!position || position.shares < numShares) {
+      return res.json({ success: false, message: 'Insufficient shares to sell' });
+    }
+
+    const revenue = currentPrice * numShares;
+    const newCash = user.cash + revenue;
+    await hybridStorage.updateUserCash(userId, newCash);
+
+    // Update position
+    const newShares = position.shares - numShares;
+    if (newShares === 0) {
+      await hybridStorage.deletePosition(userId, playerId, 'LONG');
+    } else {
+      await hybridStorage.upsertPosition(userId, {
+        player_id: playerId,
+        player_name: player.name,
+        shares: newShares,
+        avg_buy_price: position.avgBuyPrice,
+        type: 'LONG'
+      });
+    }
+
+    // Add transaction
+    await hybridStorage.addTransaction(userId, {
+      type: 'SELL',
+      player_id: playerId,
+      player_name: player.name,
+      shares: numShares,
+      price: currentPrice,
+      total: revenue
+    });
+
+    // Fetch updated data
+    const positions = await hybridStorage.getUserPositions(userId);
+    const transactions = await hybridStorage.getUserTransactions(userId);
+
+    return res.json({ 
+      success: true, 
+      message: `Sold ${numShares} shares of ${player.name}`,
+      portfolio: {
+        cash: newCash,
+        holdings: positions,
+        transactions
+      }
+    });
+  }
+
+  res.json({ success: false, message: 'Invalid trade type' });
+});
+
+// ========== PORTFOLIO ENDPOINTS ==========
+
+app.get('/api/portfolio/:userId', async (req, res) => {
+  const user = await hybridStorage.getUser(req.params.userId);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  // Update current prices for holdings
+  const holdings = user.positions.map((pos: any) => {
+    const player = getPlayer(pos.playerId);
+    return {
+      ...pos,
+      currentPrice: player ? player.currentPrice : pos.avgBuyPrice
+    };
+  });
+
+  res.json({
+    cash: user.cash,
+    holdings,
+    optionPositions: user.optionPositions || [],
+    transactions: user.transactions.slice(0, 50)
+  });
 });
 
 // ========== LEAGUE ENDPOINTS ==========
