@@ -47,14 +47,34 @@ interface TradingProviderProps {
 const API_URL = 'http://localhost:3001';
 const WS_URL = 'ws://localhost:3001';
 
+// Helper function to get userId from localStorage
+const getUserId = (): string | null => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      return user.id;
+    } catch (error) {
+      console.error('Error parsing user from localStorage:', error);
+      return null;
+    }
+  }
+  return null;
+};
+
 export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) => {
-  const [balance, setBalance] = useState(100000); // Starting with $100k
+  const [balance, setBalance] = useState(10000); // Starting with $10k
   const [positions, setPositions] = useState<Position[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   const buyShares = async (player: Player, shares: number): Promise<boolean> => {
-    const userId = localStorage.getItem('userId') || 'user123';
+    const userId = getUserId();
+
+    if (!userId) {
+      console.error('No user logged in');
+      return false;
+    }
 
     try {
       const response = await fetch(`${API_URL}/api/trade`, {
@@ -85,7 +105,12 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
   };
 
   const sellShares = async (playerId: string, shares: number): Promise<boolean> => {
-    const userId = localStorage.getItem('userId') || 'user123';
+    const userId = getUserId();
+
+    if (!userId) {
+      console.error('No user logged in');
+      return false;
+    }
 
     try {
       const response = await fetch(`${API_URL}/api/trade`, {
@@ -129,15 +154,32 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
 
   // Fetch portfolio from backend
   const refreshPortfolio = async () => {
-    const userId = localStorage.getItem('userId') || 'user1'; // Get from auth context
+    const userId = getUserId();
+
+    if (!userId) {
+      console.log('No user logged in - skipping portfolio refresh');
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/api/portfolio/${userId}`);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch portfolio:', response.status);
+        return;
+      }
+
       const portfolio = await response.json();
 
-      setBalance(portfolio.cash);
+      if (!portfolio) {
+        console.error('No portfolio data received');
+        return;
+      }
+
+      setBalance(portfolio.cash || 10000);
 
       // Convert holdings to positions format
-      const convertedPositions: Position[] = portfolio.holdings.map((h: any) => ({
+      const convertedPositions: Position[] = (portfolio.holdings || []).map((h: any) => ({
         playerId: h.playerId,
         playerName: h.playerName,
         shares: h.shares,
@@ -155,25 +197,45 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
 
   // Load portfolio on mount
   useEffect(() => {
+    const userId = getUserId();
+    
+    if (!userId) {
+      console.log('No user logged in - skipping portfolio initialization');
+      return;
+    }
+
+    // Fetch initial portfolio
     refreshPortfolio();
 
     // Setup WebSocket listener for portfolio updates
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      console.log('WebSocket connected for portfolio updates');
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
 
         if (message.type === 'PORTFOLIO_UPDATE') {
-          const userId = localStorage.getItem('userId') || 'user1';
+          const currentUserId = getUserId();
 
           // Only update if it's for this user
-          if (message.data.userId === userId) {
+          if (currentUserId && message.data.userId === currentUserId) {
             const portfolio = message.data.portfolio;
-            setBalance(portfolio.cash);
+            setBalance(portfolio.cash || 10000);
 
-            const convertedPositions: Position[] = portfolio.holdings.map((h: any) => ({
+            const convertedPositions: Position[] = (portfolio.holdings || []).map((h: any) => ({
               playerId: h.playerId,
               playerName: h.playerName,
               shares: h.shares,
@@ -197,7 +259,7 @@ export const TradingProvider: React.FC<TradingProviderProps> = ({ children }) =>
         wsRef.current.close();
       }
     };
-  }, []);
+  }, []); // Empty dependency array - runs once on mount
 
   return (
     <TradingContext.Provider

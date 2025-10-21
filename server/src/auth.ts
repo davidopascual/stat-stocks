@@ -41,6 +41,8 @@ async function checkSupabaseConnection() {
     if (error && error.message.includes('Invalid API key')) {
       console.warn('⚠️  Supabase not configured - using in-memory storage');
       useSupabase = false;
+    } else {
+      console.log('✅ Supabase connected successfully');
     }
   } catch (err) {
     console.warn('⚠️  Supabase connection failed - using in-memory storage');
@@ -49,7 +51,10 @@ async function checkSupabaseConnection() {
 }
 
 // Check connection on startup
-checkSupabaseConnection();
+checkSupabaseConnection().catch(err => {
+  console.warn('⚠️  Supabase connection check failed:', err.message);
+  useSupabase = false;
+});
 
 /**
  * Hash password with bcrypt

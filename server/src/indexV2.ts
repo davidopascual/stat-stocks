@@ -323,9 +323,9 @@ app.get('/api/leagues/user/:userId', (req, res) => {
 });
 
 // Create league
-app.post('/api/leagues/create', (req, res) => {
+app.post('/api/leagues/create', async (req, res) => {
   const { creatorId, name, description, startingBalance, settings, isPrivate } = req.body;
-  const result = leagueManager.createLeague(
+  const result = await leagueManager.createLeague(
     creatorId,
     name,
     description,
@@ -337,23 +337,23 @@ app.post('/api/leagues/create', (req, res) => {
 });
 
 // Join league
-app.post('/api/leagues/join', (req, res) => {
+app.post('/api/leagues/join', async (req, res) => {
   const { userId, inviteCode } = req.body;
-  const result = leagueManager.joinLeague(userId, inviteCode);
+  const result = await leagueManager.joinLeague(userId, inviteCode);
   res.json(result);
 });
 
 // Leave league
-app.post('/api/leagues/:leagueId/leave', (req, res) => {
+app.post('/api/leagues/:leagueId/leave', async (req, res) => {
   const { userId } = req.body;
-  const result = leagueManager.leaveLeague(userId, req.params.leagueId);
+  const result = await leagueManager.leaveLeague(userId, req.params.leagueId);
   res.json(result);
 });
 
 // Delete league
-app.delete('/api/leagues/:leagueId', (req, res) => {
+app.delete('/api/leagues/:leagueId', async (req, res) => {
   const { userId } = req.body;
-  const result = leagueManager.deleteLeague(userId, req.params.leagueId);
+  const result = await leagueManager.deleteLeague(userId, req.params.leagueId);
   res.json(result);
 });
 
@@ -526,7 +526,7 @@ circuitBreakerSystem.on('resumed', (breaker) => {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🏀 NBA Stock Market Server`);
   console.log(`📡 Server running on port ${PORT}`);
   console.log(`🔌 WebSocket server ready`);
@@ -539,4 +539,7 @@ server.listen(PORT, () => {
   console.log(`   - Leagues & Leaderboards`);
   console.log(`   - Circuit Breakers`);
   console.log(`   - Bid/Ask Spreads`);
+
+  // Initialize league manager to load leagues from database
+  await leagueManager.initialize();
 });

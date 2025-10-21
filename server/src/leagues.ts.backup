@@ -1,54 +1,19 @@
 import { League, LeagueSettings, LeagueLeaderboard, LeaderboardEntry, User, PortfolioRisk } from './types.js';
-import { supabase } from './supabase.js';
-import { isUsingSupabase } from './auth.js';
 
 class LeagueManager {
   private leagues: Map<string, League> = new Map();
   private users: Map<string, User> = new Map();
   private leaderboards: Map<string, LeagueLeaderboard> = new Map();
 
-  // Initialize - load leagues from Supabase if available
-  async initialize() {
-    if (isUsingSupabase()) {
-      try {
-        const { data: leagues, error } = await supabase
-          .from('leagues')
-          .select('*');
-
-        if (!error && leagues) {
-          console.log(`📊 Loading ${leagues.length} leagues from database...`);
-          leagues.forEach(league => {
-            this.leagues.set(league.id, {
-              id: league.id,
-              name: league.name,
-              description: league.description,
-              creatorId: league.creator_id,
-              memberIds: league.member_ids || [],
-              startDate: new Date(league.start_date),
-              startingBalance: parseFloat(league.starting_balance),
-              isActive: league.is_active,
-              isPrivate: league.is_private,
-              inviteCode: league.invite_code,
-              settings: league.settings || {}
-            });
-          });
-          console.log(`✅ Loaded ${leagues.length} leagues from database`);
-        }
-      } catch (err) {
-        console.error('Failed to load leagues from Supabase:', err);
-      }
-    }
-  }
-
   // Create a new league
-  async createLeague(
+  createLeague(
     creatorId: string,
     name: string,
     description: string,
     startingBalance: number,
     settings: Partial<LeagueSettings> = {},
     isPrivate: boolean = true
-  ): Promise<{ success: boolean; league?: League; inviteCode?: string }> {
+  ): { success: boolean; league?: League; inviteCode?: string } {
     const leagueId = `league_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const inviteCode = this.generateInviteCode();
 
@@ -76,36 +41,10 @@ class LeagueManager {
       settings: defaultSettings
     };
 
-    // Save to Supabase if available
-    if (isUsingSupabase()) {
-      try {
-        const { error } = await supabase
-          .from('leagues')
-          .insert({
-            id: leagueId,
-            name,
-            description,
-            creator_id: creatorId,
-            member_ids: [creatorId],
-            start_date: league.startDate.toISOString(),
-            starting_balance: startingBalance,
-            is_active: true,
-            is_private: isPrivate,
-            invite_code: inviteCode,
-            settings: defaultSettings
-          });
-
-        if (error) {
-          console.error('Failed to save league to Supabase:', error);
-        } else {
-          console.log(`✅ League "${name}" saved to database`);
-        }
-      } catch (err) {
-        console.error('Error saving league:', err);
-      }
-    }
-
     this.leagues.set(leagueId, league);
+
+    // Note: User's league association is managed separately in the user service
+    // No need to update user here since we're using hybrid storage
 
     // Initialize leaderboard
     this.initializeLeaderboard(leagueId);
@@ -114,10 +53,10 @@ class LeagueManager {
   }
 
   // Join a league via invite code
-  async joinLeague(
+  joinLeague(
     userId: string,
     inviteCode: string
-  ): Promise<{ success: boolean; message: string; league?: League }> {
+  ): { success: boolean; message: string; league?: League } {
     const league = Array.from(this.leagues.values()).find(
       l => l.inviteCode === inviteCode
     );
@@ -136,32 +75,17 @@ class LeagueManager {
 
     league.memberIds.push(userId);
 
-    // Update Supabase if available
-    if (isUsingSupabase()) {
-      try {
-        const { error } = await supabase
-          .from('leagues')
-          .update({ member_ids: league.memberIds })
-          .eq('id', league.id);
-
-        if (error) {
-          console.error('Failed to update league in Supabase:', error);
-        } else {
-          console.log(`✅ User ${userId} joined league "${league.name}"`);
-        }
-      } catch (err) {
-        console.error('Error updating league:', err);
-      }
-    }
+    // Note: User's league association and balance reset is managed separately
+    // in the user service using hybrid storage
 
     return { success: true, message: 'Successfully joined league', league };
   }
 
   // Leave a league
-  async leaveLeague(
+  leaveLeague(
     userId: string,
     leagueId: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): { success: boolean; message: string } {
     const league = this.leagues.get(leagueId);
 
     if (!league) {
@@ -177,22 +101,6 @@ class LeagueManager {
 
     league.memberIds = league.memberIds.filter(id => id !== userId);
 
-    // Update Supabase if available
-    if (isUsingSupabase()) {
-      try {
-        const { error } = await supabase
-          .from('leagues')
-          .update({ member_ids: league.memberIds })
-          .eq('id', leagueId);
-
-        if (error) {
-          console.error('Failed to update league in Supabase:', error);
-        }
-      } catch (err) {
-        console.error('Error updating league:', err);
-      }
-    }
-
     const user = this.users.get(userId);
     if (user) {
       user.leagueIds = user.leagueIds.filter(id => id !== leagueId);
@@ -202,10 +110,10 @@ class LeagueManager {
   }
 
   // Delete a league (creator only)
-  async deleteLeague(
+  deleteLeague(
     userId: string,
     leagueId: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): { success: boolean; message: string } {
     const league = this.leagues.get(leagueId);
 
     if (!league) {
@@ -214,24 +122,6 @@ class LeagueManager {
 
     if (league.creatorId !== userId) {
       return { success: false, message: 'Only creator can delete league' };
-    }
-
-    // Delete from Supabase if available
-    if (isUsingSupabase()) {
-      try {
-        const { error } = await supabase
-          .from('leagues')
-          .delete()
-          .eq('id', leagueId);
-
-        if (error) {
-          console.error('Failed to delete league from Supabase:', error);
-        } else {
-          console.log(`✅ League "${league.name}" deleted from database`);
-        }
-      } catch (err) {
-        console.error('Error deleting league:', err);
-      }
     }
 
     // Remove league from all members

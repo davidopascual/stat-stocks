@@ -101,10 +101,10 @@ const AppContent: React.FC = () => {
             <div className="balance-display">
               <div className="balance-label">Cash Balance</div>
               <div className="balance-amount">
-                ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${(balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="portfolio-value">
-                Total: ${getTotalValue().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                Total: ${(getTotalValue() || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
           </div>
